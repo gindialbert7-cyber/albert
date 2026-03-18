@@ -1,35 +1,58 @@
 {
   "expo": {
-    "name": "Albert",
+    "name": "Albert — Jewish eReader",
     "slug": "albert-jewish-ereader",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "albert",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "description": "Albert is the Jewish reading library — Chumash, Talmud, Halacha, Mussar, Chassidus, modern Jewish books, children's stories, and daily learning, beautifully formatted for every device.",
+    "githubUrl": "https://github.com/gindialbert7-cyber/albert",
+
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F1A35"
+    },
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.albert.ereader",
-      "buildNumber": "1",
+      "buildNumber": "11",
+      "requireFullScreen": false,
       "infoPlist": {
-        "UIRequiresFullScreen": false
+        "UIRequiresFullScreen": false,
+        "NSCameraUsageDescription": "Albert uses your camera to scan book barcodes.",
+        "NSPhotoLibraryUsageDescription": "Albert may access your photos to set a profile picture.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#1A2744"
+        "backgroundColor": "#0F1A35"
       },
       "package": "com.albert.ereader",
-      "versionCode": 1,
-      "permissions": []
+      "versionCode": 11,
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "allowBackup": false
     },
+
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
       "expo-router",
       "expo-font",
@@ -39,10 +62,17 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#1A2744"
+          "backgroundColor": "#0F1A35"
         }
       ]
     ],
+
+    "extra": {
+      "eas": {
+        "projectId": "albert-ereader-project-id"
+      }
+    },
+
     "experiments": {
       "typedRoutes": true
     }

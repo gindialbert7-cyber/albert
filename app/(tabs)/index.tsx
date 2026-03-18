@@ -9,12 +9,13 @@ import { router } from 'expo-router';
 
 import {
   ALL_BOOKS, FEATURED_BOOKS, CLASSIC_SEFARIM,
-  CHILDRENS_BOOKS, MODERN_BOOKS, FREE_BOOKS,
+  CHILDRENS_BOOKS, MODERN_BOOKS, FREE_BOOKS, PRAYER_BOOKS,
 } from '@/constants/Books';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
 import { useLibraryStore } from '@/store/useLibraryStore';
+import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 
 import FeaturedHero from '@/components/library/FeaturedHero';
 import BookShelf from '@/components/library/BookShelf';
@@ -29,6 +30,8 @@ export default function HomeScreen() {
   const heroBook = FEATURED_BOOKS[0];
 
   const { recentBooks, myBooks } = useLibraryStore();
+  const { isActive, isTrialing }  = useSubscriptionStore();
+  const hasSubscription = isActive || isTrialing;
   const bookMap = Object.fromEntries(ALL_BOOKS.map(b => [b.id, b]));
 
   const continueBooks = recentBooks
@@ -138,6 +141,14 @@ export default function HomeScreen() {
           cardWidth={isTablet ? 150 : 130}
         />
 
+        {/* ── Prayer & Liturgy ──────────────────────────────────────── */}
+        <BookShelf
+          title="Prayer & Liturgy"
+          hebrewTitle="תפילה"
+          books={PRAYER_BOOKS}
+          cardWidth={isTablet ? 145 : 125}
+        />
+
         {/* ── Free to Read ──────────────────────────────────────────── */}
         <BookShelf
           title="Free to Read"
@@ -146,8 +157,8 @@ export default function HomeScreen() {
           cardWidth={isTablet ? 145 : 125}
         />
 
-        {/* ── Subscription promo banner ─────────────────────────────── */}
-        <View style={styles.promoBannerWrap}>
+        {/* ── Subscription promo banner (hidden for subscribers) ─────── */}
+        {!hasSubscription && <View style={styles.promoBannerWrap}>
           <LinearGradient
             colors={[Palette.navyDeep, '#0A1020']}
             style={styles.promoBanner}
@@ -187,7 +198,7 @@ export default function HomeScreen() {
             </View>
             <GoldDivider marginVertical={0} opacity={0.4} />
           </LinearGradient>
-        </View>
+        </View>}
 
         <View style={{ height: Space[10] }} />
       </Animated.ScrollView>

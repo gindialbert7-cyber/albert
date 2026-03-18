@@ -1,20 +1,44 @@
 import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
-import { Platform, Text } from 'react-native';
+import { Platform, View } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Palette } from '@/constants/Colors';
 import { Fonts } from '@/constants/Typography';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 
-function TabIcon({ label, hebrew, focused }: { label: string; hebrew: string; focused: boolean }) {
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+interface TabIconProps {
+  name:     IoniconsName;
+  focused:  boolean;
+  badge?:   number;
+}
+
+function TabIcon({ name, focused, badge }: TabIconProps) {
   return (
-    <Text style={{
-      fontFamily: Fonts.hebrewMedium,
-      fontSize:   focused ? 24 : 20,
-      color:      focused ? Palette.goldBright : Palette.navyLight,
-    }}>
-      {hebrew}
-    </Text>
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons
+        name={name}
+        size={focused ? 26 : 23}
+        color={focused ? Palette.goldBright : '#3A4560'}
+      />
+      {badge !== undefined && badge > 0 && (
+        <View style={{
+          position:        'absolute',
+          top:             -3,
+          right:           -7,
+          backgroundColor: Palette.goldBright,
+          borderRadius:    8,
+          minWidth:        16,
+          height:          16,
+          alignItems:      'center',
+          justifyContent:  'center',
+          paddingHorizontal: 3,
+        }}>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -31,50 +55,58 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown:          false,
+        headerShown: false,
         tabBarStyle: {
-          backgroundColor:     Palette.navyDeep,
-          borderTopColor:      Palette.goldMid + '25',
-          borderTopWidth:      1,
-          height:              Platform.OS === 'ios' ? 88 : 64,
-          paddingBottom:       Platform.OS === 'ios' ? 24 : 8,
-          paddingTop:          8,
+          backgroundColor: Palette.navyDeep,
+          borderTopColor:  Palette.goldMid + '20',
+          borderTopWidth:  1,
+          height:          Platform.OS === 'ios' ? 88 : 64,
+          paddingBottom:   Platform.OS === 'ios' ? 24 : 8,
+          paddingTop:      8,
         },
         tabBarActiveTintColor:   Palette.goldBright,
         tabBarInactiveTintColor: '#3A4560',
         tabBarLabelStyle: {
-          fontFamily:   Fonts.sansMedium,
-          fontSize:     10,
-          letterSpacing:0.4,
+          fontFamily:    Fonts.sansMedium,
+          fontSize:      10,
+          letterSpacing: 0.4,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title:         'Home',
-          tabBarIcon:    ({ focused }) => <TabIcon label="Home"    hebrew="בית"   focused={focused} />,
+          title:      'Home',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="library"
         options={{
-          title:         'Library',
-          tabBarIcon:    ({ focused }) => <TabIcon label="Library" hebrew="ספרים" focused={focused} />,
+          title:      'Library',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'library' : 'library-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title:         'Explore',
-          tabBarIcon:    ({ focused }) => <TabIcon label="Explore" hebrew="חיפוש" focused={focused} />,
+          title:      'Explore',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'search' : 'search-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title:         'Profile',
-          tabBarIcon:    ({ focused }) => <TabIcon label="Profile" hebrew="אני"   focused={focused} />,
+          title:      'Profile',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'person-circle' : 'person-circle-outline'} focused={focused} />
+          ),
         }}
       />
     </Tabs>

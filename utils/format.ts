@@ -65,3 +65,13 @@ export function formatPageCount(pages: number): string {
   if (pages < 1000) return `${pages} pp`;
   return `${(pages / 1000).toFixed(1)}k pp`;
 }
+
+/**
+ * Estimate reading time from page count.
+ * Uses ~1.3 min/page for Jewish texts (bilingual, slower reading pace).
+ * @example estimateReadTime(240) → "5h 12m"
+ */
+export function estimateReadTime(pages: number): string {
+  const minutes = Math.round(pages * 1.3);
+  return formatReadingTime(minutes);
+}

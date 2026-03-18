@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import {
@@ -322,8 +323,21 @@ function CollectionRow({ collection: col }: { collection: Collection }) {
           <Text style={cr.headerTitle}>{col.title}</Text>
           <Text style={cr.headerDesc}>{col.description}</Text>
         </View>
-        <TouchableOpacity style={[cr.headerBtn, { borderColor: col.accentColor + '60' }]}>
-          <Text style={[cr.headerBtnText, { color: col.accentColor }]}>See all →</Text>
+        <TouchableOpacity
+          style={[cr.headerBtn, { borderColor: col.accentColor + '60', flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+          onPress={() => router.push({
+            pathname: '/collection/[id]',
+            params: {
+              id:      col.id,
+              title:   col.title,
+              hebrew:  col.hebrewTitle,
+              desc:    col.description,
+              bookIds: col.bookIds.join(','),
+            },
+          })}
+        >
+          <Text style={[cr.headerBtnText, { color: col.accentColor }]}>See all</Text>
+          <Ionicons name="arrow-forward" size={11} color={col.accentColor} />
         </TouchableOpacity>
       </LinearGradient>
 

@@ -20,6 +20,7 @@ import BookCover from '@/components/library/BookCover';
 import BookShelf from '@/components/library/BookShelf';
 import GoldDivider from '@/components/ui/GoldDivider';
 import ProgressBar from '@/components/ui/ProgressBar';
+import { estimateReadTime } from '@/utils/format';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const isTablet = SCREEN_W >= 768;
@@ -151,7 +152,8 @@ export default function BookDetailScreen() {
             {/* Stats row */}
             <View style={styles.statsRow}>
               <StatPill icon="📄" value={`${book.pageCount} pp`} />
-              <StatPill icon="📚" value={`${book.chapters.length} ${book.chapters.length === 1 ? 'chapter' : 'chapters'}`} />
+              <StatPill icon="📚" value={`${book.chapters.length} ${book.chapters.length === 1 ? 'ch' : 'ch'}`} />
+              <StatPill icon="⏱" value={estimateReadTime(book.pageCount)} />
               {book.publishYear && <StatPill icon="🕰️" value={String(book.publishYear)} />}
               {!book.requiresSub && <StatPill icon="✓" value="Free" highlight />}
             </View>

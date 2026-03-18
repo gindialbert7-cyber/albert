@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Switch,
-  useColorScheme,
+  useColorScheme, Linking, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,6 +13,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
+import { Config } from '@/constants/Config';
 import GoldDivider from '@/components/ui/GoldDivider';
 
 export default function ProfileScreen() {
@@ -176,14 +177,46 @@ export default function ProfileScreen() {
             <SettingsRow icon="👤" label="Sign In / Register" value="→" onPress={() => router.push('/auth/sign-in')} />
           )}
           <SettingsRow icon="☁️" label="Sync Across Devices" value={user ? 'Coming Soon' : 'Sign in to sync'} />
-          <SettingsRow icon="🎁" label="Gift a Subscription" value="→" onPress={() => {}} />
-          <SettingsRow icon="🔒" label="Privacy Policy" value="→" onPress={() => {}} />
-          <SettingsRow icon="📜" label="Terms of Service" value="→" onPress={() => {}} />
+          <SettingsRow
+            icon="🎁"
+            label="Gift a Subscription"
+            value="→"
+            onPress={() => Alert.alert(
+              'Gift Albert Premium',
+              'Gift subscriptions are coming soon! You\'ll be able to gift Monthly, Annual, or Lifetime access to anyone.',
+              [{ text: 'Got it', style: 'default' }],
+            )}
+          />
+          <SettingsRow icon="🔒" label="Privacy Policy" value="→" onPress={() => Linking.openURL(Config.PRIVACY_URL)} />
+          <SettingsRow icon="📜" label="Terms of Service" value="→" onPress={() => Linking.openURL(Config.TERMS_URL)} />
         </SettingsSection>
 
         <SettingsSection title="Support" hebrewTitle="תמיכה">
-          <SettingsRow icon="💬" label="Contact Support" value="→" onPress={() => {}} />
-          <SettingsRow icon="⭐" label="Rate Albert" value="→" onPress={() => {}} />
+          <SettingsRow
+            icon="💬"
+            label="Contact Support"
+            value="→"
+            onPress={() => Linking.openURL(`mailto:${Config.SUPPORT_EMAIL}?subject=Albert App Support`)}
+          />
+          <SettingsRow
+            icon="⭐"
+            label="Rate Albert"
+            value="→"
+            onPress={() => {
+              // Opens App Store on iOS, Google Play on Android
+              Linking.openURL(
+                'https://apps.apple.com/app/id0000000000?action=write-review'
+              ).catch(() => {
+                Linking.openURL('https://play.google.com/store/apps/details?id=com.albert.ereader');
+              });
+            }}
+          />
+          <SettingsRow
+            icon="🐛"
+            label="Report a Bug"
+            value="→"
+            onPress={() => Linking.openURL(`mailto:${Config.SUPPORT_EMAIL}?subject=Albert App Bug Report`)}
+          />
         </SettingsSection>
 
         <View style={styles.footer}>
