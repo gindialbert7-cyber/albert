@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ALL_BOOKS, Book } from '@/constants/Books';
 import { useLibraryStore } from '@/store/useLibraryStore';
@@ -12,6 +13,7 @@ import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
 import BookCard from '@/components/library/BookCard';
 import GoldDivider from '@/components/ui/GoldDivider';
+import ProgressBar from '@/components/ui/ProgressBar';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const isTablet = SCREEN_W >= 768;
@@ -22,7 +24,7 @@ type Tab = 'myBooks' | 'recent' | 'bookmarks';
 
 export default function LibraryScreen() {
   const [tab, setTab] = useState<Tab>('myBooks');
-  const { myBooks, recentBooks, bookmarks } = useLibraryStore();
+  const { myBooks, recentBooks, bookmarks, highlights, positions } = useLibraryStore();
 
   const bookMap = Object.fromEntries(ALL_BOOKS.map(b => [b.id, b]));
 
@@ -38,23 +40,65 @@ export default function LibraryScreen() {
     return <BookCard book={item} width={CARD_W} />;
   }
 
+  // Reading stats
+  const booksInProgress = Object.values(positions).filter(p => p.progress > 0 && p.progress < 0.98).length;
+  const booksCompleted  = Object.values(positions).filter(p => p.progress >= 0.98).length;
+
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.safeTop}>
         <View style={styles.header}>
-          <Text style={styles.headerHebrew}>הספרייה שלי</Text>
-          <Text style={styles.headerTitle}>My Library</Text>
+          <View>
+            <Text style={styles.headerHebrew}>הספרייה שלי</Text>
+            <Text style={styles.headerTitle}>My Library</Text>
+          </View>
+          <Pressable
+            style={styles.notesBtn}
+            onPress={() => router.push('/notes')}
+          >
+            <Text style={styles.notesBtnIcon}>🔖</Text>
+            <View>
+              <Text style={styles.notesBtnText}>Notes</Text>
+              {(bookmarks.length + highlights.length) > 0 && (
+                <Text style={styles.notesBtnCount}>
+                  {bookmarks.length + highlights.length}
+                </Text>
+              )}
+            </View>
+          </Pressable>
         </View>
+
+        {/* Stats strip */}
+        {(booksInProgress > 0 || booksCompleted > 0) && (
+          <View style={styles.statsStrip}>
+            {booksInProgress > 0 && (
+              <View style={styles.statChip}>
+                <Text style={styles.statValue}>{booksInProgress}</Text>
+                <Text style={styles.statLabel}>in progress</Text>
+              </View>
+            )}
+            {booksCompleted > 0 && (
+              <View style={styles.statChip}>
+                <Text style={styles.statValue}>{booksCompleted}</Text>
+                <Text style={styles.statLabel}>completed</Text>
+              </View>
+            )}
+            <View style={styles.statChip}>
+              <Text style={styles.statValue}>{myBooks.length}</Text>
+              <Text style={styles.statLabel}>in library</Text>
+            </View>
+          </View>
+        )}
 
         <GoldDivider marginVertical={8} opacity={0.3} />
 
         {/* Tab bar */}
         <View style={styles.tabBar}>
           {([
-            { key: 'myBooks',   label: 'My Books' },
-            { key: 'recent',    label: 'Recently Read' },
-            { key: 'bookmarks', label: 'Bookmarks' },
-          ] as { key: Tab; label: string }[]).map(t => (
+            { key: 'myBooks',   label: 'My Books',     count: myBooks.length },
+            { key: 'recent',    label: 'Recently Read', count: recentBooks.length },
+            { key: 'bookmarks', label: 'Bookmarks',     count: bookmarks.length },
+          ] as { key: Tab; label: string; count: number }[]).map(t => (
             <Pressable
               key={t.key}
               style={[styles.tab, tab === t.key && styles.tabActive]}
@@ -63,6 +107,9 @@ export default function LibraryScreen() {
               <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>
                 {t.label}
               </Text>
+              {t.count > 0 && tab !== t.key && (
+                <Text style={styles.tabCount}>{t.count}</Text>
+              )}
             </Pressable>
           ))}
         </View>
@@ -100,7 +147,7 @@ function EmptyState({ tab }: { tab: Tab }) {
     },
     bookmarks: {
       hebrew:  'שמור את מקומך',
-      english: 'Bookmark passages you want to return to.',
+      english: 'Tap the bookmark icon while reading to save passages.',
       cta:     'Browse Books',
     },
   };
@@ -134,7 +181,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space[5],
     paddingTop:        Space[4],
     paddingBottom:     Space[2],
-    gap:               2,
+    flexDirection:     'row',
+    justifyContent:    'space-between',
+    alignItems:        'flex-end',
   },
   headerHebrew: {
     fontFamily: Fonts.hebrewMedium,
@@ -146,6 +195,58 @@ const styles = StyleSheet.create({
     fontSize:   28,
     color:      '#EDE8DD',
   },
+  notesBtn: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    gap:            6,
+    backgroundColor:'#141B30',
+    borderRadius:   Radius.md,
+    paddingHorizontal: 12,
+    paddingVertical:   8,
+    borderWidth:    1,
+    borderColor:    '#1E2A40',
+    marginBottom:   4,
+  },
+  notesBtnIcon: {
+    fontSize: 16,
+  },
+  notesBtnText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   13,
+    color:      '#EDE8DD',
+  },
+  notesBtnCount: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   10,
+    color:      Palette.goldMid,
+  },
+
+  // Stats strip
+  statsStrip: {
+    flexDirection:    'row',
+    paddingHorizontal: Space[5],
+    paddingBottom:    Space[2],
+    gap:              Space[3],
+  },
+  statChip: {
+    backgroundColor: '#141B30',
+    borderRadius:    Radius.sm,
+    paddingHorizontal: Space[3],
+    paddingVertical:  Space[2],
+    alignItems:      'center',
+    borderWidth:     1,
+    borderColor:     '#1E2A40',
+  },
+  statValue: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   16,
+    color:      '#EDE8DD',
+  },
+  statLabel: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   10,
+    color:      '#5A5040',
+  },
 
   // Tabs
   tabBar: {
@@ -155,11 +256,14 @@ const styles = StyleSheet.create({
     gap:              8,
   },
   tab: {
+    flexDirection:    'row',
+    alignItems:       'center',
     paddingHorizontal: 14,
     paddingVertical:   8,
     borderRadius:      Radius.pill,
     borderWidth:       1,
     borderColor:       Palette.goldMid + '25',
+    gap:               4,
   },
   tabActive: {
     backgroundColor: Palette.navyMid,
@@ -172,6 +276,11 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: '#EDE8DD',
+  },
+  tabCount: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   11,
+    color:      '#3A4A60',
   },
 
   // Grid

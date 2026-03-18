@@ -56,8 +56,10 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <StatusBar style="light" />
         <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-          <Stack.Screen name="(tabs)"    options={{ headerShown: false }} />
-          <Stack.Screen name="book/[id]" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="(tabs)"      options={{ headerShown: false }} />
+          <Stack.Screen name="book/[id]"   options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="notes"       options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding"  options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen
             name="subscribe"
             options={{

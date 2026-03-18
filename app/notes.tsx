@@ -1,0 +1,435 @@
+import React, { useState } from 'react';
+import {
+  View, Text, StyleSheet, SectionList, Pressable,
+  Platform, Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+
+import { useLibraryStore, BookmarkItem, HighlightItem } from '@/store/useLibraryStore';
+import { ALL_BOOKS } from '@/constants/Books';
+import { Fonts } from '@/constants/Typography';
+import { Space, Radius } from '@/constants/Spacing';
+import { Palette } from '@/constants/Colors';
+import GoldDivider from '@/components/ui/GoldDivider';
+
+type Tab = 'bookmarks' | 'highlights';
+
+export default function NotesScreen() {
+  const [tab, setTab] = useState<Tab>('bookmarks');
+  const { bookmarks, highlights, removeBookmark, removeHighlight } = useLibraryStore();
+
+  function handleOpenBookmark(bm: BookmarkItem) {
+    router.push({ pathname: '/book/[id]', params: { id: bm.bookId } });
+  }
+
+  function handleOpenHighlight(hl: HighlightItem) {
+    router.push({ pathname: '/book/[id]', params: { id: hl.bookId } });
+  }
+
+  function confirmRemoveBookmark(id: string) {
+    Alert.alert('Remove Bookmark', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => removeBookmark(id) },
+    ]);
+  }
+
+  function confirmRemoveHighlight(id: string) {
+    Alert.alert('Remove Highlight', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => removeHighlight(id) },
+    ]);
+  }
+
+  // Group by book title
+  const bookmarksByBook = groupBy(bookmarks, b => b.bookTitle ?? b.bookId);
+  const highlightsByBook = groupBy(highlights, h => h.bookTitle ?? h.bookId);
+
+  const bmSections = Object.entries(bookmarksByBook).map(([title, items]) => ({
+    title, data: items,
+  }));
+  const hlSections = Object.entries(highlightsByBook).map(([title, items]) => ({
+    title, data: items,
+  }));
+
+  return (
+    <View style={styles.root}>
+      <SafeAreaView edges={['top']} style={styles.safeTop}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>← Back</Text>
+          </Pressable>
+          <View>
+            <Text style={styles.headerHebrew}>סימניות והדגשות</Text>
+            <Text style={styles.headerTitle}>Notes & Highlights</Text>
+          </View>
+        </View>
+
+        <GoldDivider marginVertical={8} opacity={0.3} />
+
+        <View style={styles.tabBar}>
+          {([
+            { key: 'bookmarks',  label: 'Bookmarks', count: bookmarks.length },
+            { key: 'highlights', label: 'Highlights', count: highlights.length },
+          ] as { key: Tab; label: string; count: number }[]).map(t => (
+            <Pressable
+              key={t.key}
+              style={[styles.tab, tab === t.key && styles.tabActive]}
+              onPress={() => setTab(t.key)}
+            >
+              <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>
+                {t.label}
+              </Text>
+              {t.count > 0 && (
+                <View style={[styles.tabBadge, tab === t.key && styles.tabBadgeActive]}>
+                  <Text style={styles.tabBadgeText}>{t.count}</Text>
+                </View>
+              )}
+            </Pressable>
+          ))}
+        </View>
+      </SafeAreaView>
+
+      {tab === 'bookmarks' ? (
+        bmSections.length === 0 ? (
+          <EmptyState
+            hebrew="שמור את מקומך"
+            english="Long-press any chapter in the reader to bookmark it."
+          />
+        ) : (
+          <SectionList
+            sections={bmSections}
+            keyExtractor={item => item.id}
+            renderSectionHeader={({ section }) => (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+              </View>
+            )}
+            renderItem={({ item }) => (
+              <BookmarkRow
+                item={item}
+                onPress={() => handleOpenBookmark(item)}
+                onRemove={() => confirmRemoveBookmark(item.id)}
+              />
+            )}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+          />
+        )
+      ) : (
+        hlSections.length === 0 ? (
+          <EmptyState
+            hebrew="הדגש פסוקים"
+            english="Long-press any text passage in the reader to highlight it."
+          />
+        ) : (
+          <SectionList
+            sections={hlSections}
+            keyExtractor={item => item.id}
+            renderSectionHeader={({ section }) => (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+              </View>
+            )}
+            renderItem={({ item }) => (
+              <HighlightRow
+                item={item}
+                onPress={() => handleOpenHighlight(item)}
+                onRemove={() => confirmRemoveHighlight(item.id)}
+              />
+            )}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+          />
+        )
+      )}
+    </View>
+  );
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────
+
+function BookmarkRow({ item, onPress, onRemove }: {
+  item: BookmarkItem;
+  onPress: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Pressable style={styles.row} onPress={onPress} onLongPress={onRemove}>
+      <View style={styles.rowIcon}>
+        <Text style={styles.rowIconText}>🔖</Text>
+      </View>
+      <View style={styles.rowContent}>
+        <Text style={styles.rowChapter}>{item.chapterTitle}</Text>
+        {item.excerpt ? (
+          <Text style={styles.rowExcerpt} numberOfLines={2}>{item.excerpt}</Text>
+        ) : null}
+        <Text style={styles.rowDate}>
+          {new Date(item.createdAt).toLocaleDateString()}
+        </Text>
+      </View>
+      <Pressable style={styles.removeBtn} onPress={onRemove}>
+        <Text style={styles.removeBtnText}>✕</Text>
+      </Pressable>
+    </Pressable>
+  );
+}
+
+function HighlightRow({ item, onPress, onRemove }: {
+  item: HighlightItem;
+  onPress: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Pressable style={styles.row} onPress={onPress} onLongPress={onRemove}>
+      <View style={[styles.highlightSwatch, { backgroundColor: item.color }]} />
+      <View style={styles.rowContent}>
+        <Text style={styles.rowChapter}>{item.chapterTitle}</Text>
+        <Text
+          style={[styles.rowHighlightText, { backgroundColor: item.color + '55' }]}
+          numberOfLines={3}
+        >
+          {item.text}
+        </Text>
+        <Text style={styles.rowDate}>
+          {new Date(item.createdAt).toLocaleDateString()}
+        </Text>
+      </View>
+      <Pressable style={styles.removeBtn} onPress={onRemove}>
+        <Text style={styles.removeBtnText}>✕</Text>
+      </Pressable>
+    </Pressable>
+  );
+}
+
+function EmptyState({ hebrew, english }: { hebrew: string; english: string }) {
+  return (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyHebrew}>{hebrew}</Text>
+      <GoldDivider marginVertical={12} opacity={0.2} />
+      <Text style={styles.emptyText}>{english}</Text>
+      <Pressable
+        style={styles.emptyBtn}
+        onPress={() => router.push('/(tabs)/explore')}
+      >
+        <Text style={styles.emptyBtnText}>Browse Books</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
+  return arr.reduce((acc, item) => {
+    const k = key(item);
+    if (!acc[k]) acc[k] = [];
+    acc[k].push(item);
+    return acc;
+  }, {} as Record<string, T[]>);
+}
+
+// ── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  root: {
+    flex:            1,
+    backgroundColor: '#0D1220',
+  },
+  safeTop: {
+    backgroundColor: '#0D1220',
+  },
+  header: {
+    paddingHorizontal: Space[5],
+    paddingTop:        Space[3],
+    paddingBottom:     Space[2],
+    gap:               2,
+  },
+  backBtn: {
+    marginBottom: Space[2],
+  },
+  backBtnText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   14,
+    color:      Palette.goldMid,
+  },
+  headerHebrew: {
+    fontFamily: Fonts.hebrewMedium,
+    fontSize:   14,
+    color:      Palette.goldMid,
+  },
+  headerTitle: {
+    fontFamily: Fonts.serifBold,
+    fontSize:   28,
+    color:      '#EDE8DD',
+  },
+
+  // Tabs
+  tabBar: {
+    flexDirection:    'row',
+    paddingHorizontal: Space[5],
+    paddingBottom:    Space[3],
+    gap:              8,
+  },
+  tab: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    paddingHorizontal: 14,
+    paddingVertical:   8,
+    borderRadius:     Radius.pill,
+    borderWidth:      1,
+    borderColor:      Palette.goldMid + '25',
+    gap:              6,
+  },
+  tabActive: {
+    backgroundColor: Palette.navyMid,
+    borderColor:     Palette.goldBright + '60',
+  },
+  tabLabel: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   13,
+    color:      '#5A5040',
+  },
+  tabLabelActive: {
+    color: '#EDE8DD',
+  },
+  tabBadge: {
+    backgroundColor: '#1E2A40',
+    borderRadius:    10,
+    minWidth:        18,
+    height:          18,
+    alignItems:      'center',
+    justifyContent:  'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeActive: {
+    backgroundColor: Palette.goldMid + '30',
+  },
+  tabBadgeText: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   10,
+    color:      Palette.goldBright,
+  },
+
+  // List
+  list: {
+    paddingBottom: Space[10],
+  },
+  sectionHeader: {
+    backgroundColor:  '#0D1220',
+    paddingHorizontal: Space[5],
+    paddingVertical:   Space[3],
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E2A40',
+  },
+  sectionTitle: {
+    fontFamily: Fonts.serifBold,
+    fontSize:   16,
+    color:      '#EDE8DD',
+  },
+
+  // Row
+  row: {
+    flexDirection:   'row',
+    alignItems:      'flex-start',
+    paddingVertical: Space[4],
+    paddingHorizontal: Space[5],
+    borderBottomWidth: 1,
+    borderBottomColor: '#1A2030',
+    gap:             Space[3],
+  },
+  rowIcon: {
+    width:          32,
+    alignItems:     'center',
+    paddingTop:     2,
+  },
+  rowIconText: {
+    fontSize: 18,
+  },
+  highlightSwatch: {
+    width:        4,
+    borderRadius: 2,
+    alignSelf:    'stretch',
+    minHeight:    50,
+    flexShrink:   0,
+  },
+  rowContent: {
+    flex: 1,
+    gap:  4,
+  },
+  rowChapter: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize:   13,
+    color:      '#EDE8DD',
+  },
+  rowExcerpt: {
+    fontFamily: Fonts.serifItalic,
+    fontSize:   13,
+    color:      '#8B8070',
+    lineHeight: 19,
+  },
+  rowHighlightText: {
+    fontFamily:  Fonts.serifRegular,
+    fontSize:    14,
+    color:       '#1A1207',
+    lineHeight:  21,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical:   2,
+  },
+  rowDate: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   11,
+    color:      '#3A4050',
+  },
+  removeBtn: {
+    width:          28,
+    height:         28,
+    alignItems:     'center',
+    justifyContent: 'center',
+    borderRadius:   14,
+    backgroundColor: '#1E2A40',
+    flexShrink:     0,
+  },
+  removeBtnText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   11,
+    color:      '#5A5040',
+  },
+
+  // Empty
+  emptyState: {
+    flex:            1,
+    alignItems:      'center',
+    justifyContent:  'center',
+    paddingHorizontal: Space[10],
+    gap:             12,
+  },
+  emptyHebrew: {
+    fontFamily: Fonts.hebrewBold,
+    fontSize:   22,
+    color:      Palette.goldMid + '80',
+    textAlign:  'center',
+  },
+  emptyText: {
+    fontFamily: Fonts.serifItalic,
+    fontSize:   15,
+    color:      '#5A5040',
+    textAlign:  'center',
+    lineHeight: 22,
+  },
+  emptyBtn: {
+    marginTop:        Space[4],
+    paddingHorizontal:Space[6],
+    paddingVertical:  Space[3],
+    borderRadius:     Radius.pill,
+    borderWidth:      1,
+    borderColor:      Palette.goldMid,
+  },
+  emptyBtnText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   14,
+    color:      Palette.goldBright,
+  },
+});

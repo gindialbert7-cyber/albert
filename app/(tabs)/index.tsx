@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import {
   ScrollView, View, Text, StyleSheet, Animated,
-  Platform, StatusBar, Dimensions,
+  Platform, StatusBar, Dimensions, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,10 +14,12 @@ import {
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
+import { useLibraryStore } from '@/store/useLibraryStore';
 
 import FeaturedHero from '@/components/library/FeaturedHero';
 import BookShelf from '@/components/library/BookShelf';
 import GoldDivider from '@/components/ui/GoldDivider';
+import DailyLearningCard from '@/components/home/DailyLearningCard';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const isTablet = SCREEN_W >= 768;
@@ -25,6 +27,14 @@ const isTablet = SCREEN_W >= 768;
 export default function HomeScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const heroBook = FEATURED_BOOKS[0];
+
+  const { recentBooks, myBooks } = useLibraryStore();
+  const bookMap = Object.fromEntries(ALL_BOOKS.map(b => [b.id, b]));
+
+  const continueBooks = recentBooks
+    .map(id => bookMap[id])
+    .filter(Boolean)
+    .slice(0, 8);
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 80],
@@ -69,23 +79,38 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          {/* Search pill */}
-          <View style={styles.searchPill}>
+          {/* Search pill — navigates to Explore */}
+          <Pressable
+            style={styles.searchPill}
+            onPress={() => router.push('/(tabs)/explore')}
+          >
             <Text style={styles.searchIcon}>🔍</Text>
             <Text style={styles.searchPlaceholder}>Search sefarim, authors, topics…</Text>
-          </View>
+          </Pressable>
         </LinearGradient>
 
         {/* ── Featured hero ──────────────────────────────────────────── */}
         {heroBook && <FeaturedHero book={heroBook} />}
 
+        {/* ── Daily Learning ─────────────────────────────────────────── */}
+        <View style={styles.sectionHeaderRow}>
+          <View>
+            <Text style={styles.sectionHebrew}>לימוד יומי</Text>
+            <Text style={styles.sectionTitle}>Today's Learning</Text>
+          </View>
+        </View>
+        <DailyLearningCard />
+
         {/* ── Continue reading ──────────────────────────────────────── */}
-        <BookShelf
-          title="Continue Reading"
-          books={ALL_BOOKS.slice(0, 5)}
-          onSeeAll={() => router.push('/(tabs)/library')}
-          cardWidth={isTablet ? 150 : 130}
-        />
+        {continueBooks.length > 0 && (
+          <BookShelf
+            title="Continue Reading"
+            hebrewTitle="המשך ללמוד"
+            books={continueBooks}
+            onSeeAll={() => router.push('/(tabs)/library')}
+            cardWidth={isTablet ? 150 : 130}
+          />
+        )}
 
         {/* ── Classic Sefarim ───────────────────────────────────────── */}
         <BookShelf
@@ -116,6 +141,7 @@ export default function HomeScreen() {
         {/* ── Free to Read ──────────────────────────────────────────── */}
         <BookShelf
           title="Free to Read"
+          hebrewTitle="חינם"
           books={FREE_BOOKS}
           cardWidth={isTablet ? 145 : 125}
         />
@@ -145,6 +171,19 @@ export default function HomeScreen() {
                   <Text key={f} style={styles.promoFeatureText}>{f}</Text>
                 ))}
               </View>
+              <Pressable
+                style={styles.promoBtn}
+                onPress={() => router.push('/subscribe')}
+              >
+                <LinearGradient
+                  colors={[Palette.goldBright, Palette.goldMid]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.promoBtnGrad}
+                >
+                  <Text style={styles.promoBtnText}>Start Free Trial</Text>
+                </LinearGradient>
+              </Pressable>
             </View>
             <GoldDivider marginVertical={0} opacity={0.4} />
           </LinearGradient>
@@ -238,6 +277,23 @@ const styles = StyleSheet.create({
     flex:       1,
   },
 
+  // Section header
+  sectionHeaderRow: {
+    paddingHorizontal: Space[5],
+    marginBottom:      Space[3],
+    marginTop:         Space[2],
+  },
+  sectionHebrew: {
+    fontFamily: Fonts.hebrewMedium,
+    fontSize:   12,
+    color:      Palette.goldMid,
+  },
+  sectionTitle: {
+    fontFamily: Fonts.serifBold,
+    fontSize:   20,
+    color:      '#EDE8DD',
+  },
+
   // Promo banner
   promoBannerWrap: {
     marginHorizontal: Space[5],
@@ -282,5 +338,20 @@ const styles = StyleSheet.create({
     fontSize:   14,
     color:      '#C8BFA8',
     lineHeight: 22,
+  },
+  promoBtn: {
+    marginTop: Space[3],
+    width:     '100%',
+  },
+  promoBtnGrad: {
+    paddingVertical:   14,
+    borderRadius:      Radius.pill,
+    alignItems:        'center',
+  },
+  promoBtnText: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   15,
+    color:      Palette.navyDeep,
+    letterSpacing: 0.3,
   },
 });

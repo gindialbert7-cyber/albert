@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Platform, Text } from 'react-native';
+import { router } from 'expo-router';
 import { Palette } from '@/constants/Colors';
 import { Fonts } from '@/constants/Typography';
+import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 
 function TabIcon({ label, hebrew, focused }: { label: string; hebrew: string; focused: boolean }) {
   return (
@@ -17,6 +19,15 @@ function TabIcon({ label, hebrew, focused }: { label: string; hebrew: string; fo
 }
 
 export default function TabLayout() {
+  const hasSeenOnboarding = useSubscriptionStore(s => s.hasSeenOnboarding);
+
+  // Redirect new users to onboarding
+  useEffect(() => {
+    if (!hasSeenOnboarding) {
+      router.replace('/onboarding');
+    }
+  }, [hasSeenOnboarding]);
+
   return (
     <Tabs
       screenOptions={{

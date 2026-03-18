@@ -5,8 +5,10 @@ import { Book } from '@/constants/Books';
 import { Fonts } from '@/constants/Typography';
 import { Radius, Shadow, Space } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
+import { useLibraryStore } from '@/store/useLibraryStore';
 import BookCover from './BookCover';
 import Badge from '../ui/Badge';
+import ProgressBar from '../ui/ProgressBar';
 import PressableScale from '../ui/PressableScale';
 
 interface Props {
@@ -16,7 +18,11 @@ interface Props {
 }
 
 export default function BookCard({ book, width = 130, onPress }: Props) {
-  const coverH = Math.round(width * 1.5);
+  const coverH  = Math.round(width * 1.5);
+  const positions = useLibraryStore(s => s.positions);
+  const pos       = positions[book.id];
+  const progress  = pos?.progress ?? 0;
+  const hasStarted = progress > 0;
 
   function handlePress() {
     if (onPress) { onPress(book); return; }
@@ -30,6 +36,16 @@ export default function BookCard({ book, width = 130, onPress }: Props) {
         {book.isNew && (
           <View style={styles.newBadge}>
             <Text style={styles.newBadgeText}>NEW</Text>
+          </View>
+        )}
+        {hasStarted && (
+          <View style={styles.progressWrap}>
+            <ProgressBar
+              progress={progress}
+              height={3}
+              trackColor="rgba(0,0,0,0.4)"
+              fillColor={Palette.goldBright}
+            />
           </View>
         )}
       </View>
@@ -49,6 +65,11 @@ export default function BookCard({ book, width = 130, onPress }: Props) {
         {!book.requiresSub && (
           <Badge label="FREE" variant="green" />
         )}
+        {hasStarted && (
+          <Text style={styles.progressText}>
+            {Math.round(progress * 100)}% read
+          </Text>
+        )}
       </View>
     </PressableScale>
   );
@@ -60,6 +81,7 @@ const styles = StyleSheet.create({
   },
   coverWrap: {
     position: 'relative',
+    width:    '100%',
   },
   newBadge: {
     position:        'absolute',
@@ -76,6 +98,12 @@ const styles = StyleSheet.create({
     fontSize:   9,
     color:      Palette.navyDeep,
     letterSpacing: 0.8,
+  },
+  progressWrap: {
+    position: 'absolute',
+    bottom:   0,
+    left:     0,
+    right:    0,
   },
   info: {
     marginTop: Space[2],
@@ -99,5 +127,11 @@ const styles = StyleSheet.create({
     fontSize:   11,
     color:      '#8B8070',
     lineHeight: 15,
+  },
+  progressText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   10,
+    color:      Palette.goldMid + '90',
+    marginTop:  1,
   },
 });
