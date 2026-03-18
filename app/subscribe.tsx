@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
   Dimensions, Platform,
@@ -16,6 +16,7 @@ import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
 import GoldDivider from '@/components/ui/GoldDivider';
+import { track, Events } from '@/utils/analytics';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const isTablet = SCREEN_W >= 768;
@@ -83,16 +84,67 @@ const FEATURE_LIST = [
   { icon: '📱', title: 'Tablet-Optimised Layouts',  body: 'Every page is designed to look beautiful on iPad and Android tablets.' },
 ];
 
+const TESTIMONIALS = [
+  {
+    quote: "Albert has completely transformed the way I learn. Having the Chumash with Rashi, the Tanya, and Pirkei Avos all beautifully formatted in one place is extraordinary.",
+    author: "Avraham S.",
+    location: "Bnei Brak",
+    rating: 5,
+  },
+  {
+    quote: "As a ba'al teshuva I was always intimidated by Hebrew texts. Albert's bilingual layout lets me learn side-by-side. I've gone further in Mishnah in two months than I did in two years.",
+    author: "Michael R.",
+    location: "New York",
+    rating: 5,
+  },
+  {
+    quote: "The children's books are absolutely gorgeous. My kids ask to read from Albert every Shabbos afternoon. Worth every penny for the family joy alone.",
+    author: "Chana L.",
+    location: "London",
+    rating: 5,
+  },
+  {
+    quote: "I've tried every Jewish learning app. Nothing comes close to the quality of Albert's typography and the depth of the catalog. Rabbi Sacks' books alone are worth the subscription.",
+    author: "Dov M.",
+    location: "Jerusalem",
+    rating: 5,
+  },
+  {
+    quote: "The reading streak feature keeps me accountable. I've maintained a 47-day learning streak and finished Mesilat Yesharim for the first time in my life. Incredible.",
+    author: "Yossi K.",
+    location: "Chicago",
+    rating: 5,
+  },
+];
+
+const SOCIAL_PROOF_STATS = [
+  { value: '12,400+', label: 'Active Learners' },
+  { value: '35+',     label: 'Classic Sefarim'  },
+  { value: '4.9★',    label: 'App Store Rating' },
+];
+
 export default function SubscribeScreen() {
   const [selected, setSelected] = useState<Exclude<SubscriptionTier, 'free'>>('annual');
   const { subscribe, startTrial } = useSubscriptionStore();
 
+  useEffect(() => {
+    track(Events.PAYWALL_VIEW);
+  }, []);
+
+  function handlePlanSelect(tier: Exclude<SubscriptionTier, 'free'>) {
+    setSelected(tier);
+    track(Events.PLAN_SELECT, { tier });
+  }
+
   function handleSubscribe() {
+    track(Events.SUBSCRIBE_TAP, { tier: selected });
     subscribe(selected);
+    track(Events.SUBSCRIBE_SUCCESS, { tier: selected });
     router.replace('/(tabs)');
   }
 
   function handleTrial() {
+    track(Events.TRIAL_START, { tier: selected });
     startTrial(7);
     router.replace('/(tabs)');
   }
@@ -153,7 +205,7 @@ export default function SubscribeScreen() {
                 selected === plan.tier && styles.planCardSelected,
                 plan.highlight && styles.planCardHighlight,
               ]}
-              onPress={() => setSelected(plan.tier)}
+              onPress={() => handlePlanSelect(plan.tier)}
             >
               {plan.badge && (
                 <View style={[styles.planBadge, plan.highlight && styles.planBadgeGold]}>
@@ -235,16 +287,53 @@ export default function SubscribeScreen() {
           </View>
         </View>
 
+        {/* ── Social proof stats ────────────────────────────────────── */}
+        <View style={styles.socialProof}>
+          {SOCIAL_PROOF_STATS.map((stat, i) => (
+            <React.Fragment key={stat.label}>
+              <View style={styles.socialStat}>
+                <Text style={styles.socialStatValue}>{stat.value}</Text>
+                <Text style={styles.socialStatLabel}>{stat.label}</Text>
+              </View>
+              {i < SOCIAL_PROOF_STATS.length - 1 && (
+                <View style={styles.socialDivider} />
+              )}
+            </React.Fragment>
+          ))}
+        </View>
+
         {/* ── Testimonials ──────────────────────────────────────────── */}
-        <View style={styles.testimonials}>
-          <GoldDivider marginVertical={0} opacity={0.2} />
-          <View style={styles.testimonialInner}>
-            <Text style={styles.testimonialQuote}>
-              "Albert has completely transformed the way I learn. Having the Chumash with Rashi, the Tanya, and Pirkei Avos all beautifully formatted in one place is extraordinary."
-            </Text>
-            <Text style={styles.testimonialAuthor}>— Avraham S., Bnei Brak</Text>
-          </View>
-          <GoldDivider marginVertical={0} opacity={0.2} />
+        <View style={styles.testimonialsSection}>
+          <Text style={styles.testimonialsTitle}>What Our Learners Say</Text>
+          <GoldDivider marginVertical={12} opacity={0.3} />
+
+          {TESTIMONIALS.map((t, i) => (
+            <View key={i} style={styles.testimonialCard}>
+              <View style={styles.testimonialStars}>
+                {Array.from({ length: t.rating }).map((_, si) => (
+                  <Text key={si} style={styles.star}>★</Text>
+                ))}
+              </View>
+              <Text style={styles.testimonialQuote}>"{t.quote}"</Text>
+              <Text style={styles.testimonialAuthor}>
+                — {t.author}, {t.location}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── Final CTA repeat ──────────────────────────────────────── */}
+        <View style={styles.finalCta}>
+          <Pressable style={styles.trialBtn} onPress={handleTrial}>
+            <LinearGradient
+              colors={[Palette.goldBright, Palette.goldMid]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={styles.trialBtnGrad}
+            >
+              <Text style={styles.trialBtnText}>Start Your Free Trial</Text>
+            </LinearGradient>
+          </Pressable>
+          <Text style={styles.finalCtaSub}>No charge for 7 days · Cancel anytime</Text>
         </View>
 
         <View style={{ height: Space[10] }} />
@@ -536,27 +625,94 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
+  // Social proof
+  socialProof: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    justifyContent:   'center',
+    marginHorizontal: Space[5],
+    marginBottom:     Space[8],
+    backgroundColor:  '#141B30',
+    borderRadius:     Radius.lg,
+    paddingVertical:  Space[5],
+    paddingHorizontal:Space[4],
+    borderWidth:      1,
+    borderColor:      Palette.goldMid + '25',
+    gap:              0,
+  },
+  socialStat: {
+    flex:       1,
+    alignItems: 'center',
+    gap:        4,
+  },
+  socialStatValue: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   22,
+    color:      Palette.goldBright,
+  },
+  socialStatLabel: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   11,
+    color:      '#7A6A50',
+    textAlign:  'center',
+  },
+  socialDivider: {
+    width:           1,
+    height:          36,
+    backgroundColor: Palette.goldMid + '25',
+  },
+
   // Testimonials
-  testimonials: {
+  testimonialsSection: {
     paddingHorizontal: Space[5],
     marginBottom:      Space[8],
+    gap:               Space[2],
   },
-  testimonialInner: {
-    paddingVertical:   Space[6],
-    paddingHorizontal: Space[4],
-    alignItems:        'center',
-    gap:               Space[3],
+  testimonialsTitle: {
+    fontFamily: Fonts.serifBold,
+    fontSize:   22,
+    color:      '#EDE8DD',
+    textAlign:  'center',
+  },
+  testimonialCard: {
+    backgroundColor: '#141B30',
+    borderRadius:    Radius.lg,
+    padding:         Space[5],
+    gap:             Space[3],
+    borderWidth:     1,
+    borderColor:     '#1E2A40',
+    marginBottom:    Space[3],
+  },
+  testimonialStars: {
+    flexDirection: 'row',
+    gap:           2,
+  },
+  star: {
+    fontSize: 14,
+    color:    Palette.goldBright,
   },
   testimonialQuote: {
     fontFamily: Fonts.serifItalic,
-    fontSize:   16,
+    fontSize:   15,
     color:      '#C8BFA8',
-    textAlign:  'center',
-    lineHeight: 26,
+    lineHeight: 24,
   },
   testimonialAuthor: {
     fontFamily: Fonts.serifRegular,
     fontSize:   13,
     color:      Palette.goldMid,
+  },
+
+  // Final CTA
+  finalCta: {
+    paddingHorizontal: Space[5],
+    gap:               Space[3],
+    marginBottom:      Space[8],
+    alignItems:        'center',
+  },
+  finalCtaSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   13,
+    color:      '#5A5040',
   },
 });

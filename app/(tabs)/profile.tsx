@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 import { useLibraryStore } from '@/store/useLibraryStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
@@ -16,17 +17,21 @@ import GoldDivider from '@/components/ui/GoldDivider';
 
 export default function ProfileScreen() {
   const { tier, isActive, isTrialing, trialDaysLeft, cancelSub } = useSubscriptionStore();
+  const { user, signOut }  = useAuthStore();
   const {
     myBooks, bookmarks, highlights, positions,
     fontSize, hebrewFontSize, lineHeight, theme,
     isDarkMode, usesSystemTheme,
     setDarkMode, setUsesSystem, setTheme, setFontSize,
+    streak, longestStreak, totalMinutesRead,
   } = useLibraryStore();
 
   const systemScheme = useColorScheme();
   const hasActive = isActive || isTrialing;
 
   const booksRead = Object.values(positions).filter(p => p.progress > 0).length;
+  const hoursRead  = Math.floor(totalMinutesRead / 60);
+  const minsRead   = totalMinutesRead % 60;
 
   return (
     <View style={styles.root}>
@@ -87,6 +92,9 @@ export default function ProfileScreen() {
             )}
           </LinearGradient>
         </View>
+
+        {/* ── Learning Streak ────────────────────────────────────────── */}
+        <StreakCard streak={streak} longestStreak={longestStreak} totalMinutesRead={totalMinutesRead} />
 
         {/* ── Stats ─────────────────────────────────────────────────── */}
         <View style={styles.statsRow}>
@@ -159,8 +167,15 @@ export default function ProfileScreen() {
         </SettingsSection>
 
         <SettingsSection title="Account" hebrewTitle="חשבון">
-          <SettingsRow icon="👤" label="Sign In / Register" value="→" onPress={() => {}} />
-          <SettingsRow icon="☁️" label="Sync Across Devices" value="Coming Soon" />
+          {user ? (
+            <>
+              <SettingsRow icon="👤" label={user.displayName} value={user.email} />
+              <SettingsRow icon="🚪" label="Sign Out" value="→" onPress={() => signOut()} />
+            </>
+          ) : (
+            <SettingsRow icon="👤" label="Sign In / Register" value="→" onPress={() => router.push('/auth/sign-in')} />
+          )}
+          <SettingsRow icon="☁️" label="Sync Across Devices" value={user ? 'Coming Soon' : 'Sign in to sync'} />
           <SettingsRow icon="🎁" label="Gift a Subscription" value="→" onPress={() => {}} />
           <SettingsRow icon="🔒" label="Privacy Policy" value="→" onPress={() => {}} />
           <SettingsRow icon="📜" label="Terms of Service" value="→" onPress={() => {}} />
@@ -184,6 +199,151 @@ export default function ProfileScreen() {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────
+
+function StreakCard({
+  streak, longestStreak, totalMinutesRead,
+}: { streak: number; longestStreak: number; totalMinutesRead: number }) {
+  const hours  = Math.floor(totalMinutesRead / 60);
+  const mins   = totalMinutesRead % 60;
+  const timeLabel = hours > 0
+    ? `${hours}h ${mins}m`
+    : `${mins}m`;
+
+  const flameColor  = streak > 0 ? '#E8823A' : '#3A3028';
+  const streakLabel = streak === 1 ? 'day streak' : 'day streak';
+
+  return (
+    <View style={streakStyles.wrap}>
+      <LinearGradient
+        colors={streak > 0 ? ['#2A1A08', '#1A0F05'] : ['#141B30', '#141B30']}
+        style={streakStyles.card}
+      >
+        <View style={streakStyles.mainRow}>
+          {/* Flame + count */}
+          <View style={streakStyles.flameBlock}>
+            <Text style={[streakStyles.flame, { color: flameColor }]}>
+              {streak > 0 ? '🔥' : '✦'}
+            </Text>
+            <Text style={[streakStyles.count, { color: streak > 0 ? '#F5A050' : '#5A5040' }]}>
+              {streak}
+            </Text>
+            <Text style={[streakStyles.streakLabel, { color: streak > 0 ? '#D4884A' : '#3A3028' }]}>
+              {streakLabel}
+            </Text>
+          </View>
+
+          {/* Divider */}
+          <View style={streakStyles.vDivider} />
+
+          {/* Stats */}
+          <View style={streakStyles.statsBlock}>
+            <View style={streakStyles.statRow}>
+              <Text style={streakStyles.statIcon}>⏱</Text>
+              <Text style={streakStyles.statValue}>{timeLabel}</Text>
+              <Text style={streakStyles.statLabel}>total time</Text>
+            </View>
+            <View style={streakStyles.statRow}>
+              <Text style={streakStyles.statIcon}>🏆</Text>
+              <Text style={streakStyles.statValue}>{longestStreak}</Text>
+              <Text style={streakStyles.statLabel}>best streak</Text>
+            </View>
+          </View>
+        </View>
+
+        {streak === 0 && (
+          <Text style={streakStyles.nudge}>
+            Open any book today to start your learning streak!
+          </Text>
+        )}
+        {streak > 0 && streak < 7 && (
+          <Text style={streakStyles.nudge}>
+            Keep it up — {7 - streak} more {7 - streak === 1 ? 'day' : 'days'} to your first weekly streak 🎯
+          </Text>
+        )}
+        {streak >= 7 && (
+          <Text style={streakStyles.nudge}>
+            Amazing! You've maintained a {streak}-day learning streak 🔥
+          </Text>
+        )}
+      </LinearGradient>
+    </View>
+  );
+}
+
+const streakStyles = StyleSheet.create({
+  wrap: {
+    marginHorizontal: Space[5],
+    marginBottom:     Space[4],
+    borderRadius:     Radius.lg,
+    overflow:         'hidden',
+    borderWidth:      1,
+    borderColor:      Palette.goldMid + '25',
+  },
+  card: {
+    padding: Space[5],
+    gap:     Space[3],
+  },
+  mainRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           Space[4],
+  },
+  flameBlock: {
+    alignItems:  'center',
+    gap:         2,
+    minWidth:    72,
+  },
+  flame: {
+    fontSize: 32,
+  },
+  count: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   36,
+    lineHeight: 40,
+    color:      '#F5A050',
+  },
+  streakLabel: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   11,
+    color:      '#D4884A',
+  },
+  vDivider: {
+    width:           1,
+    height:          70,
+    backgroundColor: '#FFFFFF12',
+  },
+  statsBlock: {
+    flex: 1,
+    gap:  Space[3],
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           6,
+  },
+  statIcon: {
+    fontSize: 14,
+    width:    20,
+  },
+  statValue: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   16,
+    color:      '#EDE8DD',
+    minWidth:   40,
+  },
+  statLabel: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   12,
+    color:      '#5A5040',
+  },
+  nudge: {
+    fontFamily: Fonts.serifItalic,
+    fontSize:   13,
+    color:      '#7A6A50',
+    textAlign:  'center',
+    lineHeight: 18,
+  },
+});
 
 function StatCard({ value, label, hebrew }: { value: number; label: string; hebrew: string }) {
   return (

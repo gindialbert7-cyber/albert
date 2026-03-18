@@ -56,6 +56,12 @@ interface LibraryState {
   theme:          'parchment' | 'white' | 'sepia' | 'night';
   hebrewFontSize: number;
 
+  // Learning streak
+  streak:          number;         // current consecutive days
+  longestStreak:   number;         // all-time best streak
+  lastLearnedDate: string | null;  // YYYY-MM-DD
+  totalMinutesRead:number;
+
   // Actions
   addToLibrary:     (bookId: string) => void;
   removeFromLib:    (bookId: string) => void;
@@ -66,6 +72,7 @@ interface LibraryState {
   removeBookmark:   (id: string) => void;
   addHighlight:     (hl: Omit<HighlightItem, 'id' | 'createdAt'>) => void;
   removeHighlight:  (id: string) => void;
+  recordLearning:   (minutes?: number) => void;
   setFontSize:      (size: number) => void;
   setHebrewSize:    (size: number) => void;
   setLineHeight:    (h: number) => void;
@@ -81,18 +88,22 @@ const uid = () => String(nextId++);
 export const useLibraryStore = create<LibraryState>()(
   persist(
     (set, get) => ({
-      myBooks:         [],
-      recentBooks:     [],
-      positions:       {},
-      bookmarks:       [],
-      highlights:      [],
-      isDarkMode:      false,
-      usesSystemTheme: true,
-      fontSize:        18,
-      hebrewFontSize:  22,
-      fontFace:        'serif',
-      lineHeight:      1.75,
-      theme:           'parchment',
+      myBooks:          [],
+      recentBooks:      [],
+      positions:        {},
+      bookmarks:        [],
+      highlights:       [],
+      isDarkMode:       false,
+      usesSystemTheme:  true,
+      fontSize:         18,
+      hebrewFontSize:   22,
+      fontFace:         'serif',
+      lineHeight:       1.75,
+      theme:            'parchment',
+      streak:           0,
+      longestStreak:    0,
+      lastLearnedDate:  null,
+      totalMinutesRead: 0,
 
       addToLibrary: (bookId) =>
         set(s => ({
@@ -130,6 +141,25 @@ export const useLibraryStore = create<LibraryState>()(
 
       removeHighlight: (id) =>
         set(s => ({ highlights: s.highlights.filter(h => h.id !== id) })),
+
+      recordLearning: (minutes = 5) => {
+        const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        set(s => {
+          if (s.lastLearnedDate === todayStr) {
+            return { totalMinutesRead: s.totalMinutesRead + minutes };
+          }
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().slice(0, 10);
+          const newStreak = s.lastLearnedDate === yesterdayStr ? s.streak + 1 : 1;
+          return {
+            streak:          newStreak,
+            longestStreak:   Math.max(s.longestStreak, newStreak),
+            lastLearnedDate: todayStr,
+            totalMinutesRead:s.totalMinutesRead + minutes,
+          };
+        });
+      },
 
       setFontSize:    (size) => set({ fontSize: size }),
       setHebrewSize:  (size) => set({ hebrewFontSize: size }),

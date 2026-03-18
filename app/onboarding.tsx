@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
+import { track, Events } from '@/utils/analytics';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
@@ -59,22 +60,30 @@ export default function OnboardingScreen() {
   const currentStep = STEPS[step];
   const isLast      = step === STEPS.length - 1;
 
+  React.useEffect(() => {
+    track(Events.ONBOARDING_START);
+  }, []);
+
   function goNext() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (isLast) {
       finish(false);
     } else {
-      setStep(s => s + 1);
+      const nextStep = step + 1;
+      track(Events.ONBOARDING_STEP, { step: nextStep, stepId: STEPS[nextStep].id });
+      setStep(nextStep);
     }
   }
 
   function finish(withTrial: boolean) {
+    track(Events.ONBOARDING_COMPLETE, { withTrial });
     markOnboardingDone();
     if (withTrial) startTrial(7);
     router.replace('/(tabs)');
   }
 
   function skip() {
+    track(Events.ONBOARDING_SKIP, { atStep: step });
     markOnboardingDone();
     router.replace('/(tabs)');
   }

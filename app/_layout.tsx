@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import {
   FrankRuhlLibre_400Regular,
   FrankRuhlLibre_500Medium,
@@ -52,6 +53,7 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
+    <ErrorBoundary>
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="light" />
@@ -61,6 +63,8 @@ export default function RootLayout() {
           <Stack.Screen name="book-detail/[id]"  options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="notes"             options={{ headerShown: false }} />
           <Stack.Screen name="onboarding"        options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="auth/sign-in"      options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
+          <Stack.Screen name="auth/sign-up"      options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
           <Stack.Screen
             name="subscribe"
             options={{
@@ -72,5 +76,6 @@ export default function RootLayout() {
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

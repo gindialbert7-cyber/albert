@@ -17,6 +17,7 @@ import { Palette } from '@/constants/Colors';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 import { useReaderColors } from '@/hooks/useTheme';
+import { track, Events } from '@/utils/analytics';
 
 import ReaderToolbar from '@/components/reader/ReaderToolbar';
 import ReaderSettings from '@/components/reader/ReaderSettings';
@@ -59,7 +60,7 @@ export default function BookReaderScreen() {
     bookmarks, addBookmark, removeBookmark,
     addHighlight, removeHighlight, highlights,
     addToLibrary, openBook, savePosition,
-    positions,
+    positions, recordLearning,
   } = useLibraryStore();
 
   const { isActive } = useSubscriptionStore();
@@ -68,13 +69,22 @@ export default function BookReaderScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const lastTap   = useRef<number>(0);
 
-  // Open book tracking
+  // Open book tracking + analytics + learning streak
   React.useEffect(() => {
     if (book) {
       openBook(book.id);
       addToLibrary(book.id);
+      recordLearning(5);
+      track(Events.BOOK_OPEN, { bookId: book.id, title: book.title, category: book.category });
     }
   }, [book?.id]);
+
+  // Record additional reading time on chapter changes
+  React.useEffect(() => {
+    if (book && activeChapter > 0) {
+      recordLearning(3);
+    }
+  }, [activeChapter]);
 
   // Restore last position when opening
   React.useEffect(() => {

@@ -1,14 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TextInput, ScrollView,
-  FlatList, Dimensions, TouchableOpacity,
+  TouchableOpacity, Dimensions, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import {
   ALL_BOOKS, Book, BookCategory,
-  CATEGORY_LABELS, CATEGORY_HEBREW,
 } from '@/constants/Books';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
@@ -17,22 +17,107 @@ import BookCard from '@/components/library/BookCard';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const isTablet = SCREEN_W >= 768;
+const CARD_W   = isTablet ? 150 : 120;
+const COLS     = isTablet ? Math.floor((SCREEN_W - 40) / (CARD_W + 16)) : 3;
 
-const CATEGORIES: { key: BookCategory | 'all'; label: string; hebrew?: string }[] = [
-  { key: 'all',       label: 'All Books' },
-  { key: 'torah',     label: 'Torah',      hebrew: 'תורה' },
-  { key: 'talmud',    label: 'Talmud',     hebrew: 'גמרא' },
-  { key: 'halacha',   label: 'Halacha',    hebrew: 'הלכה' },
-  { key: 'mussar',    label: 'Mussar',     hebrew: 'מוסר' },
-  { key: 'chasidus',  label: 'Chassidus',  hebrew: 'חסידות' },
-  { key: 'philosophy',label: 'Philosophy' },
-  { key: 'biography', label: 'Biography' },
-  { key: 'children',  label: "Children's" },
-  { key: 'modern',    label: 'Modern' },
+// ─── Curated collections ───────────────────────────────────────────────────
+
+interface Collection {
+  id:          string;
+  title:       string;
+  hebrewTitle: string;
+  description: string;
+  bookIds:     string[];
+  gradient:    [string, string];
+  accentColor: string;
+}
+
+const CURATED_COLLECTIONS: Collection[] = [
+  {
+    id:          'essentials',
+    title:       'Jewish Essentials',
+    hebrewTitle: 'יסודות',
+    description: 'The texts every Jewish library begins with',
+    bookIds:     ['chumash-rashi', 'pirkei-avos', 'tehillim', 'siddur-complete', 'tanya'],
+    gradient:    ['#1A2845', '#0F1A35'],
+    accentColor: Palette.goldBright,
+  },
+  {
+    id:          'mussar',
+    title:       'Path of Growth',
+    hebrewTitle: 'דרך המוסר',
+    description: 'Timeless wisdom for character and soul',
+    bookIds:     ['mesilat-yesharim', 'orchos-tzaddikim', 'chovas-halevavos', 'pirkei-avos'],
+    gradient:    ['#2A1A0A', '#1A0F05'],
+    accentColor: '#D4884A',
+  },
+  {
+    id:          'modern',
+    title:       'Modern Jewish Thought',
+    hebrewTitle: 'מחשבה עכשווית',
+    description: 'Contemporary thinkers on faith and meaning',
+    bookIds:     ['rabbi-sacks-great-partnership', 'rav-soloveitchik-lonely-man', 'man-is-not-alone', 'thirteen-petalled-rose'],
+    gradient:    ['#0A2A1A', '#051A10'],
+    accentColor: '#5CA87A',
+  },
+  {
+    id:          'beginners',
+    title:       "New to Learning?",
+    hebrewTitle: 'למתחילים',
+    description: 'Accessible, welcoming texts to start your journey',
+    bookIds:     ['pirkei-avos', 'haggadah-pesach', 'igrot-haramban', 'rabbi-sacks-covenant'],
+    gradient:    ['#2A1A3A', '#1A0F28'],
+    accentColor: '#9B7EBD',
+  },
 ];
 
-const CARD_W = isTablet ? 155 : 130;
-const COLS   = isTablet ? Math.floor((SCREEN_W - 40) / (CARD_W + 16)) : 3;
+// ─── Category pills ────────────────────────────────────────────────────────
+
+const CATEGORIES: { key: BookCategory | 'all'; label: string; hebrew?: string; emoji: string }[] = [
+  { key: 'all',        label: 'All',        emoji: '📚' },
+  { key: 'torah',      label: 'Torah',      hebrew: 'תורה',   emoji: '📜' },
+  { key: 'talmud',     label: 'Talmud',     hebrew: 'גמרא',   emoji: '🕍' },
+  { key: 'halacha',    label: 'Halacha',    hebrew: 'הלכה',   emoji: '⚖️' },
+  { key: 'mussar',     label: 'Mussar',     hebrew: 'מוסר',   emoji: '✨' },
+  { key: 'chasidus',   label: 'Chassidus',  hebrew: 'חסידות', emoji: '🕯️' },
+  { key: 'philosophy', label: 'Philosophy',                   emoji: '🔭' },
+  { key: 'modern',     label: 'Modern',                       emoji: '📖' },
+  { key: 'biography',  label: 'Biography',                    emoji: '👤' },
+  { key: 'children',   label: "Children's",                   emoji: '🌟' },
+];
+
+// ─── Sort options ──────────────────────────────────────────────────────────
+
+type SortMode = 'default' | 'free' | 'az' | 'classic' | 'new';
+
+const SORT_OPTIONS: { key: SortMode; label: string }[] = [
+  { key: 'default', label: 'Recommended' },
+  { key: 'free',    label: 'Free First'  },
+  { key: 'classic', label: 'Classics'    },
+  { key: 'new',     label: 'New Arrivals'},
+  { key: 'az',      label: 'A → Z'       },
+];
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function booksByIds(ids: string[]): Book[] {
+  return ids.flatMap(id => {
+    const b = ALL_BOOKS.find(x => x.id === id);
+    return b ? [b] : [];
+  });
+}
+
+function applySort(books: Book[], sort: SortMode): Book[] {
+  if (sort === 'default') return books;
+  const copy = [...books];
+  if (sort === 'free')    return copy.sort((a, b) => (a.requiresSub ? 1 : -1) - (b.requiresSub ? 1 : -1));
+  if (sort === 'classic') return copy.sort((a, b) => (b.isClassic ? 1 : 0) - (a.isClassic ? 1 : 0));
+  if (sort === 'new')     return copy.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
+  if (sort === 'az')      return copy.sort((a, b) => a.title.localeCompare(b.title));
+  return copy;
+}
+
+// ─── Main screen ───────────────────────────────────────────────────────────
 
 export default function ExploreScreen() {
   const params = useLocalSearchParams<{ category?: string }>();
@@ -41,79 +126,97 @@ export default function ExploreScreen() {
     : params.category === 'children' ? 'children'
     : 'all') as BookCategory | 'all';
 
-  const [query,       setQuery]    = useState('');
-  const [activeCategory, setCategory] = useState<BookCategory | 'all'>(initCat);
+  const [query,    setQuery]    = useState('');
+  const [category, setCategory] = useState<BookCategory | 'all'>(initCat);
+  const [sort,     setSort]     = useState<SortMode>('default');
+  const searchRef = useRef<TextInput>(null);
+
+  const isSearching  = query.trim().length > 0;
+  const isBrowseAll  = !isSearching && category === 'all';
 
   const filtered = useMemo(() => {
     let books = ALL_BOOKS;
-    if (activeCategory !== 'all') {
-      books = books.filter(b => b.category === activeCategory);
-    }
+    if (category !== 'all') books = books.filter(b => b.category === category);
     if (query.trim()) {
       const q = query.toLowerCase();
       books = books.filter(b =>
-        b.title.toLowerCase().includes(q) ||
-        (b.hebrewTitle ?? '').includes(q) ||
+        b.title.toLowerCase().includes(q)         ||
+        (b.hebrewTitle ?? '').includes(q)         ||
         b.authors.some(a => a.name.toLowerCase().includes(q)) ||
         b.tags.some(t => t.toLowerCase().includes(q)),
       );
     }
-    return books;
-  }, [query, activeCategory]);
+    return applySort(books, sort);
+  }, [query, category, sort]);
 
-  function renderBook({ item }: { item: Book }) {
+  const handleCategoryPress = useCallback((key: BookCategory | 'all') => {
+    setCategory(key);
+    if (key !== 'all') setSort('default');
+  }, []);
+
+  // ── Renders ──
+
+  function renderGridBook({ item }: { item: Book }) {
     return <BookCard book={item} width={CARD_W} />;
   }
 
   return (
-    <View style={styles.root}>
-      {/* ── Header ───────────────────────────────────────────────────── */}
-      <SafeAreaView edges={['top']} style={styles.safeTop}>
-        <View style={styles.header}>
-          <Text style={styles.headerHebrew}>חיפוש</Text>
-          <Text style={styles.headerTitle}>Browse & Search</Text>
+    <View style={s.root}>
+      {/* ── Fixed Header ──────────────────────────────────────────────── */}
+      <SafeAreaView edges={['top']} style={s.safeTop}>
+        <View style={s.header}>
+          <Text style={s.headerHeb}>חיפוש</Text>
+          <Text style={s.headerTitle}>Browse & Search</Text>
         </View>
 
         {/* Search bar */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchBar}>
-            <Text style={styles.searchIcon}>🔍</Text>
+        <View style={s.searchRow}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={s.searchBar}
+            onPress={() => searchRef.current?.focus()}
+          >
+            <Text style={s.searchIcon}>🔍</Text>
             <TextInput
-              style={styles.searchInput}
-              placeholder="Search sefarim, authors…"
+              ref={searchRef}
+              style={s.searchInput}
+              placeholder="Search sefarim, authors, topics…"
               placeholderTextColor="#4A4030"
               value={query}
               onChangeText={setQuery}
               returnKeyType="search"
+              autoCorrect={false}
             />
             {query.length > 0 && (
-              <TouchableOpacity onPress={() => setQuery('')}>
-                <Text style={styles.clearBtn}>✕</Text>
+              <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={s.clearBtn}>✕</Text>
               </TouchableOpacity>
             )}
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Category pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catScroll}
+          contentContainerStyle={s.catScroll}
+          keyboardShouldPersistTaps="always"
         >
           {CATEGORIES.map(cat => {
-            const active = cat.key === activeCategory;
+            const active = cat.key === category;
             return (
               <TouchableOpacity
                 key={cat.key}
-                style={[styles.catPill, active && styles.catPillActive]}
-                onPress={() => setCategory(cat.key)}
+                style={[s.catPill, active && s.catPillActive]}
+                onPress={() => handleCategoryPress(cat.key)}
               >
+                <Text style={s.catEmoji}>{cat.emoji}</Text>
                 {cat.hebrew && active && (
-                  <Text style={[styles.catHebrew, { color: active ? Palette.navyDeep : Palette.goldMid }]}>
+                  <Text style={[s.catHeb, { color: active ? Palette.navyDeep : Palette.goldMid }]}>
                     {cat.hebrew}
                   </Text>
                 )}
-                <Text style={[styles.catLabel, active && styles.catLabelActive]}>
+                <Text style={[s.catLabel, active && s.catLabelActive]}>
                   {cat.label}
                 </Text>
               </TouchableOpacity>
@@ -122,39 +225,150 @@ export default function ExploreScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      {/* ── Results ──────────────────────────────────────────────────── */}
-      <FlatList
-        key={`grid-${COLS}`}
-        data={filtered}
-        keyExtractor={b => b.id}
-        renderItem={renderBook}
-        numColumns={COLS}
-        contentContainerStyle={styles.grid}
-        columnWrapperStyle={COLS > 1 ? styles.row : undefined}
+      {/* ── Scrollable content ────────────────────────────────────────── */}
+      <ScrollView
+        contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyHebrew}>אין תוצאות</Text>
-            <Text style={styles.emptyText}>No books found for "{query}"</Text>
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+      >
+
+        {/* ── Curated Collections (browse-all mode only) ────────────── */}
+        {isBrowseAll && (
+          <View style={s.collectionsSection}>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionHeb}>אוספים</Text>
+              <Text style={s.sectionTitle}>Curated Collections</Text>
+            </View>
+
+            {CURATED_COLLECTIONS.map(col => (
+              <CollectionRow key={col.id} collection={col} />
+            ))}
           </View>
         )}
-        ListHeaderComponent={() => (
-          <Text style={styles.resultCount}>
-            {filtered.length} {filtered.length === 1 ? 'book' : 'books'}
-          </Text>
+
+        {/* ── Sort bar ─────────────────────────────────────────────── */}
+        {!isBrowseAll && (
+          <View style={s.sortSection}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.sortScroll}
+            >
+              {SORT_OPTIONS.map(o => (
+                <TouchableOpacity
+                  key={o.key}
+                  style={[s.sortPill, sort === o.key && s.sortPillActive]}
+                  onPress={() => setSort(o.key)}
+                >
+                  <Text style={[s.sortLabel, sort === o.key && s.sortLabelActive]}>
+                    {o.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         )}
-      />
+
+        {/* ── All Books grid ────────────────────────────────────────── */}
+        <View style={s.gridSection}>
+          {isBrowseAll && (
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionHeb}>כל הספרים</Text>
+              <Text style={s.sectionTitle}>All {filtered.length} Books</Text>
+            </View>
+          )}
+          {!isBrowseAll && (
+            <View style={s.resultsHeader}>
+              <Text style={s.resultCount}>
+                {filtered.length} {filtered.length === 1 ? 'book' : 'books'}
+                {isSearching ? ` for "${query}"` : ''}
+              </Text>
+            </View>
+          )}
+
+          {filtered.length === 0 ? (
+            <EmptyState query={query} />
+          ) : (
+            <FlatList
+              data={filtered}
+              keyExtractor={b => b.id}
+              renderItem={renderGridBook}
+              numColumns={COLS}
+              columnWrapperStyle={COLS > 1 ? s.gridRow : undefined}
+              scrollEnabled={false}
+              contentContainerStyle={s.grid}
+            />
+          )}
+        </View>
+
+        <View style={{ height: Space[12] }} />
+      </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+// ─── CollectionRow component ───────────────────────────────────────────────
+
+function CollectionRow({ collection: col }: { collection: Collection }) {
+  const books = booksByIds(col.bookIds);
+
+  return (
+    <View style={cr.wrap}>
+      {/* Header card */}
+      <LinearGradient colors={col.gradient} style={cr.header}>
+        <View style={cr.headerLeft}>
+          <Text style={[cr.headerHeb, { color: col.accentColor }]}>{col.hebrewTitle}</Text>
+          <Text style={cr.headerTitle}>{col.title}</Text>
+          <Text style={cr.headerDesc}>{col.description}</Text>
+        </View>
+        <TouchableOpacity style={[cr.headerBtn, { borderColor: col.accentColor + '60' }]}>
+          <Text style={[cr.headerBtnText, { color: col.accentColor }]}>See all →</Text>
+        </TouchableOpacity>
+      </LinearGradient>
+
+      {/* Book shelf */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={cr.shelf}
+      >
+        {books.map(book => (
+          <BookCard key={book.id} book={book} width={110} />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── EmptyState component ──────────────────────────────────────────────────
+
+function EmptyState({ query }: { query: string }) {
+  return (
+    <View style={es.wrap}>
+      <Text style={es.hebrew}>אין תוצאות</Text>
+      {query ? (
+        <>
+          <Text style={es.text}>No books found for "{query}"</Text>
+          <Text style={es.sub}>Try a different search term or browse by category</Text>
+        </>
+      ) : (
+        <Text style={es.text}>No books in this category yet</Text>
+      )}
+    </View>
+  );
+}
+
+// ─── Styles ────────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
   root: {
     flex:            1,
     backgroundColor: '#0D1220',
   },
   safeTop: {
     backgroundColor: '#0D1220',
+    zIndex:          10,
   },
   header: {
     paddingHorizontal: Space[5],
@@ -162,9 +376,9 @@ const styles = StyleSheet.create({
     paddingBottom:     Space[2],
     gap:               2,
   },
-  headerHebrew: {
+  headerHeb: {
     fontFamily: Fonts.hebrewMedium,
-    fontSize:   14,
+    fontSize:   13,
     color:      Palette.goldMid,
   },
   headerTitle: {
@@ -173,7 +387,6 @@ const styles = StyleSheet.create({
     color:      '#EDE8DD',
   },
 
-  // Search
   searchRow: {
     paddingHorizontal: Space[5],
     paddingBottom:     Space[3],
@@ -189,7 +402,7 @@ const styles = StyleSheet.create({
     borderColor:      Palette.goldMid + '25',
     gap:              8,
   },
-  searchIcon: { fontSize: 14 },
+  searchIcon:  { fontSize: 14 },
   searchInput: {
     flex:       1,
     fontFamily: Fonts.sansRegular,
@@ -203,7 +416,6 @@ const styles = StyleSheet.create({
     padding:    4,
   },
 
-  // Category pills
   catScroll: {
     paddingHorizontal: Space[5],
     paddingBottom:     Space[4],
@@ -213,7 +425,7 @@ const styles = StyleSheet.create({
     flexDirection:    'row',
     alignItems:       'center',
     gap:              4,
-    paddingHorizontal:12,
+    paddingHorizontal:11,
     paddingVertical:  7,
     borderRadius:     Radius.pill,
     borderWidth:      1,
@@ -224,9 +436,10 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.goldBright,
     borderColor:     Palette.goldBright,
   },
-  catHebrew: {
+  catEmoji:     { fontSize: 12 },
+  catHeb: {
     fontFamily: Fonts.hebrewMedium,
-    fontSize:   12,
+    fontSize:   11,
     color:      Palette.navyDeep,
   },
   catLabel: {
@@ -238,37 +451,152 @@ const styles = StyleSheet.create({
     color: Palette.navyDeep,
   },
 
-  // Grid
-  resultCount: {
-    fontFamily:    Fonts.sansRegular,
-    fontSize:      12,
-    color:         '#5A5040',
-    marginBottom:  Space[4],
+  scroll: {
+    paddingTop: Space[3],
+  },
+
+  collectionsSection: {
+    marginBottom: Space[6],
+    gap:          Space[4],
+  },
+  sectionHeader: {
     paddingHorizontal: Space[5],
+    gap:               1,
+    marginBottom:      Space[1],
+  },
+  sectionHeb: {
+    fontFamily: Fonts.hebrewMedium,
+    fontSize:   11,
+    color:      Palette.goldMid + '80',
+  },
+  sectionTitle: {
+    fontFamily: Fonts.serifBold,
+    fontSize:   20,
+    color:      '#EDE8DD',
+  },
+
+  sortSection: {
+    marginBottom: Space[4],
+  },
+  sortScroll: {
+    paddingHorizontal: Space[5],
+    gap:               8,
+  },
+  sortPill: {
+    paddingHorizontal: 14,
+    paddingVertical:   7,
+    borderRadius:      Radius.pill,
+    borderWidth:       1,
+    borderColor:       '#2A3450',
+    backgroundColor:   '#141B30',
+  },
+  sortPillActive: {
+    backgroundColor: '#243558',
+    borderColor:     Palette.goldMid + '60',
+  },
+  sortLabel: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   13,
+    color:      '#5A5040',
+  },
+  sortLabelActive: {
+    color: Palette.goldMid,
+  },
+
+  gridSection: {
+    paddingBottom: Space[4],
+  },
+  resultsHeader: {
+    paddingHorizontal: Space[5],
+    marginBottom:      Space[3],
+  },
+  resultCount: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   13,
+    color:      '#5A5040',
   },
   grid: {
     paddingHorizontal: Space[5],
-    paddingBottom:     Space[10],
   },
-  row: {
-    gap:          Space[4],
-    marginBottom: Space[6],
+  gridRow: {
+    gap:          Space[3],
+    marginBottom: Space[5],
   },
+});
 
-  // Empty state
-  emptyState: {
-    alignItems:  'center',
-    paddingTop:  Space[12],
-    gap:         8,
+const cr = StyleSheet.create({
+  wrap: {
+    gap: Space[3],
   },
-  emptyHebrew: {
+  header: {
+    marginHorizontal: Space[5],
+    borderRadius:     Radius.lg,
+    padding:          Space[5],
+    flexDirection:    'row',
+    alignItems:       'flex-end',
+    justifyContent:   'space-between',
+    borderWidth:      1,
+    borderColor:      '#FFFFFF10',
+  },
+  headerLeft: {
+    flex: 1,
+    gap:  3,
+  },
+  headerHeb: {
+    fontFamily: Fonts.hebrewBold,
+    fontSize:   13,
+  },
+  headerTitle: {
+    fontFamily: Fonts.serifBold,
+    fontSize:   18,
+    color:      '#FDFAF4',
+  },
+  headerDesc: {
+    fontFamily: Fonts.serifItalic,
+    fontSize:   12,
+    color:      '#8B8070',
+    lineHeight: 18,
+    maxWidth:   200,
+  },
+  headerBtn: {
+    borderWidth:      1,
+    borderRadius:     Radius.pill,
+    paddingHorizontal:12,
+    paddingVertical:   6,
+  },
+  headerBtnText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   12,
+  },
+  shelf: {
+    paddingHorizontal: Space[5],
+    gap:               Space[3],
+    paddingBottom:     Space[2],
+  },
+});
+
+const es = StyleSheet.create({
+  wrap: {
+    alignItems:        'center',
+    paddingTop:        Space[12],
+    paddingHorizontal: Space[6],
+    gap:               8,
+  },
+  hebrew: {
     fontFamily: Fonts.hebrewBold,
     fontSize:   28,
-    color:      Palette.goldMid + '60',
+    color:      Palette.goldMid + '50',
   },
-  emptyText: {
+  text: {
     fontFamily: Fonts.serifRegular,
-    fontSize:   15,
+    fontSize:   16,
     color:      '#5A5040',
+    textAlign:  'center',
+  },
+  sub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   13,
+    color:      '#3A3028',
+    textAlign:  'center',
   },
 });
