@@ -72,7 +72,7 @@ export default function DailyLearningCard() {
         {/* Read button */}
         <Pressable
           style={styles.readBtn}
-          onPress={() => router.push({ pathname: '/book/[id]', params: { id: 'pirkei-avos' } })}
+          onPress={() => router.push({ pathname: '/book-detail/[id]', params: { id: 'pirkei-avos' } })}
         >
           <Text style={styles.readBtnText}>Read Pirkei Avos →</Text>
         </Pressable>

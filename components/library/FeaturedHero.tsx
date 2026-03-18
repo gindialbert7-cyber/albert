@@ -19,7 +19,7 @@ interface Props {
 
 export default function FeaturedHero({ book }: Props) {
   function handlePress() {
-    router.push({ pathname: '/book/[id]', params: { id: book.id } });
+    router.push({ pathname: '/book-detail/[id]', params: { id: book.id } });
   }
 
   const coverW = isTablet ? 180 : 140;

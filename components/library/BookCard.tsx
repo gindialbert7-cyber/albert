@@ -26,7 +26,7 @@ export default function BookCard({ book, width = 130, onPress }: Props) {
 
   function handlePress() {
     if (onPress) { onPress(book); return; }
-    router.push({ pathname: '/book/[id]', params: { id: book.id } });
+    router.push({ pathname: '/book-detail/[id]', params: { id: book.id } });
   }
 
   return (
