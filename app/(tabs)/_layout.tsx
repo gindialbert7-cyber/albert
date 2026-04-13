@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Platform, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Palette } from '@/constants/Colors';
 import { Fonts } from '@/constants/Typography';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
@@ -54,6 +55,9 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      screenListeners={{
+        tabPress: () => Haptics.selectionAsync(),
+      }}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

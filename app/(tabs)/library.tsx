@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Dimensions,
-  TextInput, ScrollView,
+  TextInput, ScrollView, RefreshControl,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,9 +32,10 @@ const SORT_OPTIONS: { key: SortBy; label: string }[] = [
 ];
 
 export default function LibraryScreen() {
-  const [tab,    setTab]    = useState<Tab>('myBooks');
-  const [sort,   setSort]   = useState<SortBy>('default');
-  const [query,  setQuery]  = useState('');
+  const [tab,       setTab]      = useState<Tab>('myBooks');
+  const [sort,      setSort]     = useState<SortBy>('default');
+  const [query,     setQuery]    = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const { myBooks, recentBooks, bookmarks, highlights, positions } = useLibraryStore();
 
@@ -92,6 +94,13 @@ export default function LibraryScreen() {
   // Reading stats
   const booksInProgress = Object.values(positions).filter(p => p.progress > 0 && p.progress < 0.98).length;
   const booksCompleted  = Object.values(positions).filter(p => p.progress >= 0.98).length;
+
+  const handleRefresh = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRefreshing(true);
+    // Simulate async refresh (store is reactive, state re-computes automatically)
+    setTimeout(() => setRefreshing(false), 600);
+  }, []);
 
   function renderBook({ item }: { item: Book }) {
     return <BookCard book={item} width={CARD_W} />;
@@ -231,6 +240,14 @@ export default function LibraryScreen() {
           columnWrapperStyle={COLS > 1 ? s.gridRow : undefined}
           contentContainerStyle={s.grid}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#C9A84C"
+              colors={['#C9A84C']}
+            />
+          }
           ListHeaderComponent={() => (
             <Text style={s.resultCount}>
               {visibleBooks.length} {visibleBooks.length === 1 ? 'book' : 'books'}

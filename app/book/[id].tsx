@@ -1,11 +1,12 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet,
+  View, Text, ScrollView, StyleSheet, Modal, TouchableOpacity,
   Pressable, Dimensions, Platform, Share, Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { ALL_BOOKS } from '@/constants/Books';
@@ -49,6 +50,7 @@ export default function BookReaderScreen() {
 
   const [toolbarVisible, setToolbarVisible] = useState(true);
   const [settingsOpen,   setSettingsOpen]   = useState(false);
+  const [tocOpen,        setTocOpen]        = useState(false);
   const [activeChapter,  setActiveChapter]  = useState(0);
   const [picker,         setPicker]         = useState<HighlightPickerState>({ visible: false, sectionIdx: 0, text: '' });
   const [contentHeight,  setContentHeight]  = useState(1);
@@ -213,8 +215,10 @@ export default function BookReaderScreen() {
         hebrewTitle={book.hebrewTitle}
         visible={toolbarVisible}
         isBookmarked={isBookmarked}
+        chapterCount={book.chapters.length}
         onSettingsPress={() => setSettingsOpen(true)}
         onBookmarkPress={handleBookmark}
+        onTocPress={() => setTocOpen(true)}
       />
 
       {/* Progress bar at top */}
@@ -375,6 +379,94 @@ export default function BookReaderScreen() {
 
       {/* Settings sheet */}
       <ReaderSettings visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* Table of Contents modal */}
+      <Modal
+        visible={tocOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTocOpen(false)}
+      >
+        <Pressable style={tocStyles.backdrop} onPress={() => setTocOpen(false)}>
+          <Pressable style={[tocStyles.sheet, { backgroundColor: colors.bg }]} onPress={e => e.stopPropagation()}>
+            {/* Header */}
+            <View style={tocStyles.header}>
+              <View>
+                <Text style={tocStyles.headerHeb}>תוכן עניינים</Text>
+                <Text style={[tocStyles.headerTitle, { color: colors.heading }]}>Table of Contents</Text>
+              </View>
+              <Pressable
+                onPress={() => setTocOpen(false)}
+                style={tocStyles.closeBtn}
+                hitSlop={8}
+                accessibilityLabel="Close"
+                accessibilityRole="button"
+              >
+                <Ionicons name="close" size={20} color={colors.muted} />
+              </Pressable>
+            </View>
+            <GoldDivider marginVertical={0} opacity={0.25} />
+            {/* Chapter list */}
+            <ScrollView style={tocStyles.list} showsVerticalScrollIndicator={false}>
+              {book.chapters.map((ch, i) => {
+                const chPos = positions[book.id];
+                const isActive = activeChapter === i;
+                const chapterFrac = 1 / book.chapters.length;
+                const chProgress = chPos
+                  ? Math.max(0, Math.min(1, (chPos.progress - i * chapterFrac) / chapterFrac))
+                  : 0;
+                return (
+                  <TouchableOpacity
+                    key={ch.id}
+                    style={[tocStyles.chapterRow, isActive && tocStyles.chapterRowActive]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setActiveChapter(i);
+                      scrollRef.current?.scrollTo({ y: 0, animated: false });
+                      setTocOpen(false);
+                    }}
+                    accessibilityLabel={`Chapter: ${ch.title}`}
+                    accessibilityRole="button"
+                  >
+                    <View style={tocStyles.chapterNum}>
+                      <Text style={[tocStyles.chapterNumText, isActive && { color: Palette.goldBright }]}>
+                        {i + 1}
+                      </Text>
+                    </View>
+                    <View style={tocStyles.chapterInfo}>
+                      {ch.hebrewTitle && (
+                        <Text style={[tocStyles.chapterHeb, { color: isActive ? Palette.goldMid : colors.gold + '60' }]}>
+                          {ch.hebrewTitle}
+                        </Text>
+                      )}
+                      <Text style={[tocStyles.chapterTitle, { color: isActive ? colors.heading : colors.text }]}>
+                        {ch.title}
+                      </Text>
+                      {chProgress > 0.02 && (
+                        <View style={tocStyles.chapterProgress}>
+                          <ProgressBar
+                            progress={Math.min(1, chProgress)}
+                            height={2}
+                            trackColor={colors.divider}
+                            fillColor={Palette.goldMid + '80'}
+                          />
+                          <Text style={[tocStyles.chapterProgressText, { color: colors.muted }]}>
+                            {Math.round(Math.min(1, chProgress) * 100)}%
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    {isActive && (
+                      <Ionicons name="chevron-forward" size={14} color={Palette.goldMid} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Highlight color picker */}
       {picker.visible && (
@@ -869,5 +961,98 @@ const paywallStyles = StyleSheet.create({
     fontSize:   13,
     color:      Palette.navyMid,
     marginTop:  4,
+  },
+});
+
+const tocStyles = StyleSheet.create({
+  backdrop: {
+    flex:            1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent:  'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius:  Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    maxHeight:            '80%',
+    borderTopWidth:       1,
+    borderTopColor:       Palette.goldMid + '30',
+  },
+  header: {
+    flexDirection:     'row',
+    justifyContent:    'space-between',
+    alignItems:        'flex-start',
+    paddingHorizontal: Space[6],
+    paddingTop:        Space[6],
+    paddingBottom:     Space[4],
+  },
+  headerHeb: {
+    fontFamily: Fonts.hebrewMedium,
+    fontSize:   12,
+    color:      Palette.goldMid,
+  },
+  headerTitle: {
+    fontFamily: Fonts.serifBold,
+    fontSize:   22,
+  },
+  closeBtn: {
+    width:           36,
+    height:          36,
+    alignItems:      'center',
+    justifyContent:  'center',
+    borderRadius:    Radius.md,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  list: {
+    paddingTop: Space[2],
+  },
+  chapterRow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    paddingHorizontal: Space[6],
+    paddingVertical:   Space[4],
+    gap:               Space[4],
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  chapterRowActive: {
+    backgroundColor: 'rgba(200,160,60,0.07)',
+  },
+  chapterNum: {
+    width:           28,
+    height:          28,
+    borderRadius:    14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems:      'center',
+    justifyContent:  'center',
+    flexShrink:      0,
+  },
+  chapterNumText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize:   12,
+    color:      '#8B8070',
+  },
+  chapterInfo: {
+    flex: 1,
+    gap:  2,
+  },
+  chapterHeb: {
+    fontFamily: Fonts.hebrewMedium,
+    fontSize:   12,
+  },
+  chapterTitle: {
+    fontFamily: Fonts.serifRegular,
+    fontSize:   16,
+    lineHeight: 22,
+  },
+  chapterProgress: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           8,
+    marginTop:     4,
+  },
+  chapterProgressText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   10,
+    flexShrink: 0,
   },
 });

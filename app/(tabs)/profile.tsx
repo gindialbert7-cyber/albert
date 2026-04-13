@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Switch,
   useColorScheme, Linking, Alert,
@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 import { useLibraryStore } from '@/store/useLibraryStore';
@@ -15,6 +16,7 @@ import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
 import { Config } from '@/constants/Config';
 import GoldDivider from '@/components/ui/GoldDivider';
+import { getNotifPrefs, toggleNotifications } from '@/services/notificationService';
 
 export default function ProfileScreen() {
   const { tier, isActive, isTrialing, trialDaysLeft, cancelSub } = useSubscriptionStore();
@@ -163,7 +165,7 @@ export default function ProfileScreen() {
             value={`${bookmarks.length + highlights.length}`}
             onPress={() => router.push('/notes')}
           />
-          <SettingsRow icon="🔔" label="Daily Learning Reminder" value={<ToggleSwitch />} />
+          <SettingsRow icon="🔔" label="Daily Learning Reminder" value={<NotificationToggle />} />
           <SettingsRow icon="📥" label="Offline Downloads" value="Coming Soon" />
         </SettingsSection>
 
@@ -409,7 +411,12 @@ function SettingsRow({
 }: { icon: string; label: string; value: string | React.ReactNode; onPress?: () => void }) {
   const Row = onPress ? Pressable : View;
   return (
-    <Row style={settingStyles.row} onPress={onPress}>
+    <Row
+      style={settingStyles.row}
+      onPress={onPress ? () => { Haptics.selectionAsync(); onPress(); } : undefined}
+      accessibilityLabel={label}
+      accessibilityRole={onPress ? 'button' : 'text'}
+    >
       <Text style={settingStyles.rowIcon}>{icon}</Text>
       <Text style={settingStyles.rowLabel}>{label}</Text>
       <View style={settingStyles.rowValue}>
@@ -466,15 +473,19 @@ function FontSizeControl({ value, onChange }: { value: number; onChange: (n: num
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <Pressable
-        onPress={() => onChange(Math.max(13, value - 1))}
+        onPress={() => { Haptics.selectionAsync(); onChange(Math.max(13, value - 1)); }}
         style={fontStyles.btn}
+        accessibilityLabel="Decrease font size"
+        accessibilityRole="button"
       >
         <Text style={fontStyles.btnText}>−</Text>
       </Pressable>
       <Text style={fontStyles.value}>{value}pt</Text>
       <Pressable
-        onPress={() => onChange(Math.min(28, value + 1))}
+        onPress={() => { Haptics.selectionAsync(); onChange(Math.min(28, value + 1)); }}
         style={fontStyles.btn}
+        accessibilityLabel="Increase font size"
+        accessibilityRole="button"
       >
         <Text style={fontStyles.btnText}>+</Text>
       </Pressable>
@@ -506,14 +517,25 @@ const fontStyles = StyleSheet.create({
   },
 });
 
-function ToggleSwitch() {
-  const [on, setOn] = React.useState(false);
+function NotificationToggle() {
+  const [enabled, setEnabled] = useState(true);
+
+  useEffect(() => {
+    getNotifPrefs().then(p => setEnabled(p.enabled));
+  }, []);
+
+  async function handleToggle(val: boolean) {
+    Haptics.selectionAsync();
+    setEnabled(val);
+    await toggleNotifications(val);
+  }
+
   return (
     <Switch
-      value={on}
-      onValueChange={setOn}
+      value={enabled}
+      onValueChange={handleToggle}
       trackColor={{ false: '#2A3450', true: Palette.goldMid }}
-      thumbColor={on ? Palette.goldBright : '#5A5040'}
+      thumbColor={enabled ? Palette.goldBright : '#5A5040'}
     />
   );
 }

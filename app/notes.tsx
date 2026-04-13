@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, SectionList, Pressable,
-  Platform, Alert,
+  Platform, Alert, Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 import { useLibraryStore, BookmarkItem, HighlightItem } from '@/store/useLibraryStore';
 import { ALL_BOOKS } from '@/constants/Books';
@@ -29,6 +31,7 @@ export default function NotesScreen() {
   }
 
   function confirmRemoveBookmark(id: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Remove Bookmark', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => removeBookmark(id) },
@@ -36,10 +39,24 @@ export default function NotesScreen() {
   }
 
   function confirmRemoveHighlight(id: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Remove Highlight', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => removeHighlight(id) },
     ]);
+  }
+
+  function shareHighlight(item: HighlightItem) {
+    Share.share({
+      message: `"${item.text}"\n\n— ${item.bookTitle ?? item.bookId}, ${item.chapterTitle}\n\nRead on Albert — The Jewish Reading Library`,
+    });
+  }
+
+  function shareBookmark(item: BookmarkItem) {
+    const excerpt = item.excerpt ? `\n"${item.excerpt}"` : '';
+    Share.share({
+      message: `Bookmarked: ${item.chapterTitle} in ${item.bookTitle ?? item.bookId}${excerpt}\n\nRead on Albert — The Jewish Reading Library`,
+    });
   }
 
   // Group by book title
@@ -111,6 +128,7 @@ export default function NotesScreen() {
                 item={item}
                 onPress={() => handleOpenBookmark(item)}
                 onRemove={() => confirmRemoveBookmark(item.id)}
+                onShare={() => shareBookmark(item)}
               />
             )}
             contentContainerStyle={styles.list}
@@ -137,6 +155,7 @@ export default function NotesScreen() {
                 item={item}
                 onPress={() => handleOpenHighlight(item)}
                 onRemove={() => confirmRemoveHighlight(item.id)}
+                onShare={() => shareHighlight(item)}
               />
             )}
             contentContainerStyle={styles.list}
@@ -150,15 +169,22 @@ export default function NotesScreen() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function BookmarkRow({ item, onPress, onRemove }: {
+function BookmarkRow({ item, onPress, onRemove, onShare }: {
   item: BookmarkItem;
-  onPress: () => void;
+  onPress:  () => void;
   onRemove: () => void;
+  onShare:  () => void;
 }) {
   return (
-    <Pressable style={styles.row} onPress={onPress} onLongPress={onRemove}>
+    <Pressable
+      style={styles.row}
+      onPress={onPress}
+      onLongPress={onRemove}
+      accessibilityLabel={`Bookmark: ${item.chapterTitle}`}
+      accessibilityRole="button"
+    >
       <View style={styles.rowIcon}>
-        <Text style={styles.rowIconText}>🔖</Text>
+        <Ionicons name="bookmark" size={18} color="#C9A84C" />
       </View>
       <View style={styles.rowContent}>
         <Text style={styles.rowChapter}>{item.chapterTitle}</Text>
@@ -169,20 +195,44 @@ function BookmarkRow({ item, onPress, onRemove }: {
           {new Date(item.createdAt).toLocaleDateString()}
         </Text>
       </View>
-      <Pressable style={styles.removeBtn} onPress={onRemove}>
-        <Text style={styles.removeBtnText}>✕</Text>
-      </Pressable>
+      <View style={styles.rowActions}>
+        <Pressable
+          style={styles.actionBtn}
+          onPress={onShare}
+          hitSlop={8}
+          accessibilityLabel="Share bookmark"
+          accessibilityRole="button"
+        >
+          <Ionicons name="share-outline" size={15} color="#5A5040" />
+        </Pressable>
+        <Pressable
+          style={styles.actionBtn}
+          onPress={onRemove}
+          hitSlop={8}
+          accessibilityLabel="Remove bookmark"
+          accessibilityRole="button"
+        >
+          <Ionicons name="trash-outline" size={15} color="#5A5040" />
+        </Pressable>
+      </View>
     </Pressable>
   );
 }
 
-function HighlightRow({ item, onPress, onRemove }: {
+function HighlightRow({ item, onPress, onRemove, onShare }: {
   item: HighlightItem;
-  onPress: () => void;
+  onPress:  () => void;
   onRemove: () => void;
+  onShare:  () => void;
 }) {
   return (
-    <Pressable style={styles.row} onPress={onPress} onLongPress={onRemove}>
+    <Pressable
+      style={styles.row}
+      onPress={onPress}
+      onLongPress={onRemove}
+      accessibilityLabel={`Highlight: ${item.text.slice(0, 50)}`}
+      accessibilityRole="button"
+    >
       <View style={[styles.highlightSwatch, { backgroundColor: item.color }]} />
       <View style={styles.rowContent}>
         <Text style={styles.rowChapter}>{item.chapterTitle}</Text>
@@ -196,9 +246,26 @@ function HighlightRow({ item, onPress, onRemove }: {
           {new Date(item.createdAt).toLocaleDateString()}
         </Text>
       </View>
-      <Pressable style={styles.removeBtn} onPress={onRemove}>
-        <Text style={styles.removeBtnText}>✕</Text>
-      </Pressable>
+      <View style={styles.rowActions}>
+        <Pressable
+          style={styles.actionBtn}
+          onPress={onShare}
+          hitSlop={8}
+          accessibilityLabel="Share highlight"
+          accessibilityRole="button"
+        >
+          <Ionicons name="share-outline" size={15} color="#5A5040" />
+        </Pressable>
+        <Pressable
+          style={styles.actionBtn}
+          onPress={onRemove}
+          hitSlop={8}
+          accessibilityLabel="Remove highlight"
+          accessibilityRole="button"
+        >
+          <Ionicons name="trash-outline" size={15} color="#5A5040" />
+        </Pressable>
+      </View>
     </Pressable>
   );
 }
@@ -383,19 +450,18 @@ const styles = StyleSheet.create({
     fontSize:   11,
     color:      '#3A4050',
   },
-  removeBtn: {
-    width:          28,
-    height:         28,
-    alignItems:     'center',
-    justifyContent: 'center',
-    borderRadius:   14,
-    backgroundColor: '#1E2A40',
-    flexShrink:     0,
+  rowActions: {
+    flexDirection: 'column',
+    gap:           4,
+    flexShrink:    0,
   },
-  removeBtnText: {
-    fontFamily: Fonts.sansRegular,
-    fontSize:   11,
-    color:      '#5A5040',
+  actionBtn: {
+    width:           30,
+    height:          30,
+    alignItems:      'center',
+    justifyContent:  'center',
+    borderRadius:    8,
+    backgroundColor: '#1A2030',
   },
 
   // Empty

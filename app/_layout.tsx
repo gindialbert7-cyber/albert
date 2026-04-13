@@ -7,6 +7,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { initNotifications } from '@/services/notificationService';
 import {
   FrankRuhlLibre_400Regular,
   FrankRuhlLibre_500Medium,
@@ -16,6 +17,7 @@ import {
 
 import {
   CrimsonPro_400Regular,
+  CrimsonPro_400Regular_Italic,
   CrimsonPro_600SemiBold,
   CrimsonPro_700Bold,
 } from '@expo-google-fonts/crimson-pro';
@@ -36,10 +38,9 @@ export default function RootLayout() {
     FrankRuhlLibre_700Bold,
     FrankRuhlLibre_900Black,
     CrimsonPro_400Regular,
+    CrimsonPro_400Regular_Italic,
     CrimsonPro_600SemiBold,
     CrimsonPro_700Bold,
-    // Italic variant mapped from regular (expo-google-fonts quirk)
-    CrimsonPro_400Regular_Italic: CrimsonPro_400Regular,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -49,6 +50,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
   }, [loaded]);
+
+  useEffect(() => {
+    initNotifications();
+  }, []);
 
   if (!loaded) return null;
 

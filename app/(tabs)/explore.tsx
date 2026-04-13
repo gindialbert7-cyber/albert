@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 import {
   ALL_BOOKS, Book, BookCategory,
@@ -15,6 +16,7 @@ import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
 import BookCard from '@/components/library/BookCard';
+import { useSearch } from '@/hooks/useSearch';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const isTablet = SCREEN_W >= 768;
@@ -127,13 +129,19 @@ export default function ExploreScreen() {
     : params.category === 'children' ? 'children'
     : 'all') as BookCategory | 'all';
 
-  const [query,    setQuery]    = useState('');
-  const [category, setCategory] = useState<BookCategory | 'all'>(initCat);
-  const [sort,     setSort]     = useState<SortMode>('default');
+  const [category,   setCategory]   = useState<BookCategory | 'all'>(initCat);
+  const [sort,       setSort]       = useState<SortMode>('default');
+  const [isFocused,  setIsFocused]  = useState(false);
   const searchRef = useRef<TextInput>(null);
+
+  const {
+    query, setQuery,
+    searchHistory, addToHistory, removeHistory, clearHistory,
+  } = useSearch({ category });
 
   const isSearching  = query.trim().length > 0;
   const isBrowseAll  = !isSearching && category === 'all';
+  const showHistory  = isFocused && !isSearching && searchHistory.length > 0;
 
   const filtered = useMemo(() => {
     let books = ALL_BOOKS;
@@ -151,9 +159,22 @@ export default function ExploreScreen() {
   }, [query, category, sort]);
 
   const handleCategoryPress = useCallback((key: BookCategory | 'all') => {
+    Haptics.selectionAsync();
     setCategory(key);
     if (key !== 'all') setSort('default');
   }, []);
+
+  const handleSearchSubmit = useCallback(() => {
+    if (query.trim()) addToHistory(query.trim());
+  }, [query, addToHistory]);
+
+  const handleHistoryTap = useCallback((term: string) => {
+    Haptics.selectionAsync();
+    setQuery(term);
+    addToHistory(term);
+    searchRef.current?.blur();
+    setIsFocused(false);
+  }, [setQuery, addToHistory]);
 
   // ── Renders ──
 
@@ -174,7 +195,7 @@ export default function ExploreScreen() {
         <View style={s.searchRow}>
           <TouchableOpacity
             activeOpacity={0.9}
-            style={s.searchBar}
+            style={[s.searchBar, isFocused && s.searchBarFocused]}
             onPress={() => searchRef.current?.focus()}
           >
             <Text style={s.searchIcon}>🔍</Text>
@@ -187,14 +208,45 @@ export default function ExploreScreen() {
               onChangeText={setQuery}
               returnKeyType="search"
               autoCorrect={false}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => { setIsFocused(false); handleSearchSubmit(); }}
+              onSubmitEditing={handleSearchSubmit}
             />
             {query.length > 0 && (
-              <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={() => { setQuery(''); Haptics.selectionAsync(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text style={s.clearBtn}>✕</Text>
               </TouchableOpacity>
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Search history dropdown */}
+        {showHistory && (
+          <View style={s.historyPanel}>
+            <View style={s.historyHeader}>
+              <Text style={s.historyTitle}>Recent Searches</Text>
+              <TouchableOpacity onPress={() => { clearHistory(); Haptics.selectionAsync(); }}>
+                <Text style={s.historyClear}>Clear all</Text>
+              </TouchableOpacity>
+            </View>
+            {searchHistory.slice(0, 6).map(term => (
+              <TouchableOpacity
+                key={term}
+                style={s.historyRow}
+                onPress={() => handleHistoryTap(term)}
+              >
+                <Ionicons name="time-outline" size={14} color="#4A4030" />
+                <Text style={s.historyTerm} numberOfLines={1}>{term}</Text>
+                <TouchableOpacity
+                  onPress={() => { removeHistory(term); Haptics.selectionAsync(); }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close" size={14} color="#3A3028" />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Category pills */}
         <ScrollView
@@ -416,6 +468,10 @@ const s = StyleSheet.create({
     borderColor:      Palette.goldMid + '25',
     gap:              8,
   },
+  searchBarFocused: {
+    borderColor: Palette.goldMid + '60',
+    backgroundColor: '#1A2240',
+  },
   searchIcon:  { fontSize: 14 },
   searchInput: {
     flex:       1,
@@ -428,6 +484,52 @@ const s = StyleSheet.create({
     fontSize:   13,
     color:      '#5A5040',
     padding:    4,
+  },
+
+  historyPanel: {
+    marginHorizontal: Space[5],
+    marginBottom:     Space[2],
+    backgroundColor:  '#141B30',
+    borderRadius:     Radius.lg,
+    borderWidth:      1,
+    borderColor:      Palette.goldMid + '20',
+    overflow:         'hidden',
+  },
+  historyHeader: {
+    flexDirection:    'row',
+    justifyContent:   'space-between',
+    alignItems:       'center',
+    paddingHorizontal: Space[4],
+    paddingVertical:   Space[2],
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E2A40',
+  },
+  historyTitle: {
+    fontFamily:  Fonts.sansSemiBold,
+    fontSize:    11,
+    color:       '#4A4030',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
+  },
+  historyClear: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   11,
+    color:      Palette.goldMid + '80',
+  },
+  historyRow: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    paddingHorizontal: Space[4],
+    paddingVertical:   Space[3],
+    gap:              Space[3],
+    borderBottomWidth: 1,
+    borderBottomColor: '#1A2030',
+  },
+  historyTerm: {
+    flex:       1,
+    fontFamily: Fonts.sansRegular,
+    fontSize:   14,
+    color:      '#A89880',
   },
 
   catScroll: {
