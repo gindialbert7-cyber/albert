@@ -20,6 +20,14 @@ export interface DailyQuote {
 }
 
 export const PIRKEI_AVOS_ROTATION: DailyMishna[] = [
+  // ── Chapter 1 ────────────────────────────────────────────────────────────
+  {
+    sage: 'Moshe', sagHeb: 'משה רבינו',
+    ref: 'Avos 1:1',
+    hebrew: 'מֹשֶׁה קִבֵּל תּוֹרָה מִסִּינַי, וּמְסָרָהּ לִיהוֹשֻׁעַ, וִיהוֹשֻׁעַ לִזְקֵנִים, וּזְקֵנִים לִנְבִיאִים, וּנְבִיאִים מְסָרוּהָ לְאַנְשֵׁי כְנֶסֶת הַגְּדוֹלָה.',
+    english: 'Moshe received the Torah from Sinai and transmitted it to Yehoshua; Yehoshua to the Elders; the Elders to the Prophets; and the Prophets transmitted it to the Men of the Great Assembly.',
+    lesson: 'The Torah is a living transmission — not a text frozen in time but a chain of teachers and students reaching from Sinai to today. You are part of that chain.',
+  },
   {
     sage: 'Shimon HaTzaddik', sagHeb: 'שמעון הצדיק',
     ref: 'Avos 1:2',

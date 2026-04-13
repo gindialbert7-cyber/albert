@@ -97,7 +97,10 @@ export async function configurePurchases(userId?: string): Promise<void> {
   }
 
   try {
-    const key = Config.REVENUECAT_KEY_IOS; // TODO: platform-aware key
+    const { Platform } = await import('react-native');
+    const key = Platform.OS === 'android'
+      ? Config.REVENUECAT_KEY_ANDROID
+      : Config.REVENUECAT_KEY_IOS;
     await SDK.configure({ apiKey: key, appUserID: userId });
     _configured = true;
   } catch (e) {
