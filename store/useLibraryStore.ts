@@ -56,6 +56,9 @@ interface LibraryState {
   theme:          'parchment' | 'white' | 'sepia' | 'night';
   hebrewFontSize: number;
 
+  // Per-book reader preferences
+  dualColumnByBook: Record<string, boolean>;
+
   // Learning streak
   streak:          number;         // current consecutive days
   longestStreak:   number;         // all-time best streak
@@ -80,6 +83,7 @@ interface LibraryState {
   setFontFace:      (f: LibraryState['fontFace']) => void;
   setDarkMode:      (on: boolean) => void;
   setUsesSystem:    (on: boolean) => void;
+  setDualColumn:    (bookId: string, on: boolean) => void;
 }
 
 let nextId = Date.now();
@@ -104,6 +108,7 @@ export const useLibraryStore = create<LibraryState>()(
       longestStreak:    0,
       lastLearnedDate:  null,
       totalMinutesRead: 0,
+      dualColumnByBook: {},
 
       addToLibrary: (bookId) =>
         set(s => ({
@@ -168,6 +173,8 @@ export const useLibraryStore = create<LibraryState>()(
       setFontFace:    (f)    => set({ fontFace: f }),
       setDarkMode:    (on)   => set({ isDarkMode: on }),
       setUsesSystem:  (on)   => set({ usesSystemTheme: on }),
+      setDualColumn:  (bookId, on) =>
+        set(s => ({ dualColumnByBook: { ...s.dualColumnByBook, [bookId]: on } })),
     }),
     {
       name:    'albert-library-v2',

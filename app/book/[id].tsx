@@ -18,6 +18,7 @@ import { Palette } from '@/constants/Colors';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 import { useReaderColors } from '@/hooks/useTheme';
+import { useAdaptiveLayout } from '@/hooks/useAdaptiveLayout';
 import { track, Events } from '@/utils/analytics';
 import { contentService } from '@/services/contentService';
 
@@ -27,9 +28,9 @@ import GoldDivider from '@/components/ui/GoldDivider';
 import BookCover from '@/components/library/BookCover';
 import ProgressBar from '@/components/ui/ProgressBar';
 
+// Legacy fallback — real dimensions come from useAdaptiveLayout() inside component.
 const { width: SCREEN_W } = Dimensions.get('window');
-const isTablet = SCREEN_W >= 768;
-const READER_MAX_W = Math.min(SCREEN_W, isTablet ? 760 : SCREEN_W);
+const isTablet = SCREEN_W >= 430;
 
 const HIGHLIGHT_COLORS = [
   { color: '#FFE066', label: 'Gold' },
@@ -66,10 +67,25 @@ export default function BookReaderScreen() {
     addHighlight, removeHighlight, highlights,
     addToLibrary, openBook, savePosition,
     positions, recordLearning,
+    dualColumnByBook, setDualColumn,
   } = useLibraryStore();
 
   const { isActive } = useSubscriptionStore();
   const colors = useReaderColors();
+  const layout = useAdaptiveLayout();
+
+  // Per-book dual-column preference — only applicable on tablet/large tiers.
+  const userDualPref   = dualColumnByBook[id ?? ''] ?? undefined;
+  const dualColumnMode = layout.showDualToggle
+    ? (userDualPref ?? (layout.columnMode === 'dual'))
+    : false;
+
+  // Adaptive sizes — user's store values act as scale factors vs. adaptive base.
+  const engScale = fontSize       / 18;       // 18 = default English size
+  const hebScale = hebrewFontSize / 22;       // 22 = default Hebrew size
+  const engSize  = Math.round(layout.englishFontSize * engScale);
+  const hebSize  = Math.round(layout.hebrewFontSize  * hebScale);
+  const lhMult   = lineHeight || layout.lineHeightMultiplier;
 
   const scrollRef = useRef<ScrollView>(null);
   const lastTap   = useRef<number>(0);
@@ -256,7 +272,12 @@ export default function BookReaderScreen() {
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
-          { maxWidth: READER_MAX_W, alignSelf: 'center', width: '100%' },
+          {
+            maxWidth:          layout.maxContentWidth,
+            paddingHorizontal: layout.marginHorizontal,
+            alignSelf:         'center',
+            width:             '100%',
+          },
         ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
@@ -340,6 +361,30 @@ export default function BookReaderScreen() {
 
           <GoldDivider marginVertical={16} opacity={0.25} />
 
+          {/* ── Dual / single column toggle (tablet+) ────────────────── */}
+          {layout.showDualToggle && !contentLoading && (
+            <View style={styles.columnToggleRow}>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setDualColumn(book.id, !dualColumnMode);
+                }}
+                style={[styles.columnToggle, { borderColor: colors.gold + '40' }]}
+                accessibilityRole="button"
+                accessibilityLabel={dualColumnMode ? 'Switch to single column' : 'Switch to dual column'}
+              >
+                <Ionicons
+                  name={dualColumnMode ? 'reorder-three-outline' : 'copy-outline'}
+                  size={14}
+                  color={colors.gold}
+                />
+                <Text style={[styles.columnToggleText, { color: colors.gold }]}>
+                  {dualColumnMode ? 'Single column' : 'Dual column'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
           {/* ── Actual text content ─────────────────────────────────── */}
           {contentLoading ? (
             <View style={styles.loadingWrap}>
@@ -348,10 +393,22 @@ export default function BookReaderScreen() {
                 Loading text…
               </Text>
             </View>
+          ) : dualColumnMode ? (
+            <DualColumnView
+              sections={isPaywalled ? content.slice(0, 6) : content}
+              colors={colors}
+              engSize={engSize}
+              hebSize={hebSize}
+              lh={lhMult}
+              gutter={layout.columnGutter}
+              getHighlightColor={getHighlightColor}
+              onLongPressSection={handleLongPressSection}
+              onShareSection={handleShare}
+            />
           ) : (
             (isPaywalled ? content.slice(0, 3) : content).map((section: TextSection, i: number) =>
               renderSection(
-                section, i, colors, fontSize, hebrewFontSize, lineHeight,
+                section, i, colors, engSize, hebSize, lhMult,
                 getHighlightColor(i),
                 () => handleLongPressSection(i, section.content),
                 () => handleShare(section.content),
@@ -505,6 +562,115 @@ export default function BookReaderScreen() {
           onShare={() => handleShare(picker.text)}
         />
       )}
+    </View>
+  );
+}
+
+// ── Dual-column bilingual view ────────────────────────────────────────────
+/**
+ * Splits sections into paired Hebrew (right) + English (left) columns.
+ * Other types (heading, commentary, divider) span both columns.
+ */
+function DualColumnView({
+  sections, colors, engSize, hebSize, lh, gutter,
+  getHighlightColor, onLongPressSection, onShareSection,
+}: {
+  sections: TextSection[];
+  colors: ReturnType<typeof useReaderColors>;
+  engSize: number;
+  hebSize: number;
+  lh: number;
+  gutter: number;
+  getHighlightColor: (idx: number) => string | undefined;
+  onLongPressSection: (idx: number, text: string) => void;
+  onShareSection: (text: string) => void;
+}) {
+  // Walk sections, grouping adjacent hebrew+english pairs into a row.
+  type Row =
+    | { kind: 'pair'; heIdx: number; enIdx: number }
+    | { kind: 'span'; idx: number };
+  const rows: Row[] = [];
+  let i = 0;
+  while (i < sections.length) {
+    const s = sections[i];
+    const next = sections[i + 1];
+    if (s.type === 'hebrew' && next?.type === 'english') {
+      rows.push({ kind: 'pair', heIdx: i, enIdx: i + 1 });
+      i += 2;
+    } else if (s.type === 'english' && next?.type === 'hebrew') {
+      rows.push({ kind: 'pair', heIdx: i + 1, enIdx: i });
+      i += 2;
+    } else {
+      rows.push({ kind: 'span', idx: i });
+      i += 1;
+    }
+  }
+
+  return (
+    <View>
+      {rows.map((row, rowIdx) => {
+        if (row.kind === 'span') {
+          const s = sections[row.idx];
+          return renderSection(
+            s, row.idx, colors, engSize, hebSize, lh,
+            getHighlightColor(row.idx),
+            () => onLongPressSection(row.idx, s.content),
+            () => onShareSection(s.content),
+          );
+        }
+
+        const he  = sections[row.heIdx];
+        const en  = sections[row.enIdx];
+        const heHl = getHighlightColor(row.heIdx);
+        const enHl = getHighlightColor(row.enIdx);
+
+        return (
+          <View key={`pair-${rowIdx}`} style={[dualStyles.row, { gap: gutter }]}>
+            {/* English (left) */}
+            <Pressable
+              style={dualStyles.col}
+              onLongPress={() => onLongPressSection(row.enIdx, en.content)}
+            >
+              <View style={[dualStyles.colInner, enHl ? { backgroundColor: enHl + '55' } : null]}>
+                {en.verseRef && (
+                  <Text style={[sectionStyles.verseRefEn, { color: colors.gold + 'AA' }]}>
+                    {en.verseRef}
+                  </Text>
+                )}
+                <Text style={[
+                  sectionStyles.englishText,
+                  { color: colors.text, fontSize: engSize, lineHeight: engSize * lh },
+                ]}>
+                  {en.content}
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* Gold vertical rule */}
+            <View style={[dualStyles.divider, { backgroundColor: colors.gold + '4D' }]} />
+
+            {/* Hebrew (right) */}
+            <Pressable
+              style={dualStyles.col}
+              onLongPress={() => onLongPressSection(row.heIdx, he.content)}
+            >
+              <View style={[dualStyles.colInner, heHl ? { backgroundColor: heHl + '55' } : null]}>
+                {he.verseRef && (
+                  <Text style={[sectionStyles.verseRef, { color: colors.gold + 'AA', textAlign: 'right' }]}>
+                    {he.verseRef}
+                  </Text>
+                )}
+                <Text style={[
+                  sectionStyles.hebrewText,
+                  { color: colors.text, fontSize: hebSize, lineHeight: hebSize * lh },
+                ]}>
+                  {he.content}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -689,9 +855,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: isTablet ? Space[10] : Space[6],
-    paddingTop:        Platform.OS === 'ios' ? 110 : 90,
-    paddingBottom:     Space[10],
+    // paddingHorizontal is supplied by useAdaptiveLayout in the component
+    paddingTop:    Platform.OS === 'ios' ? 110 : 90,
+    paddingBottom: Space[10],
   },
   tapArea: {
     flex: 1,
@@ -783,6 +949,28 @@ const styles = StyleSheet.create({
   navBtnText: {
     fontFamily: Fonts.sansMedium,
     fontSize:   14,
+  },
+
+  // Column toggle
+  columnToggleRow: {
+    flexDirection:  'row',
+    justifyContent: 'flex-end',
+    marginBottom:   Space[3],
+  },
+  columnToggle: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               6,
+    paddingHorizontal: 10,
+    paddingVertical:   6,
+    borderRadius:      Radius.pill,
+    borderWidth:       1,
+  },
+  columnToggleText: {
+    fontFamily:    Fonts.sansMedium,
+    fontSize:      11,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
 
   // Content loading
@@ -1001,6 +1189,26 @@ const paywallStyles = StyleSheet.create({
     fontSize:   13,
     color:      Palette.navyMid,
     marginTop:  4,
+  },
+});
+
+const dualStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems:    'stretch',
+    marginBottom:  Space[4],
+  },
+  col: {
+    flex: 1,
+  },
+  colInner: {
+    padding:      6,
+    borderRadius: 6,
+  },
+  divider: {
+    width: 1,
+    alignSelf: 'stretch',
+    opacity: 0.8,
   },
 });
 
