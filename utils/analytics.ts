@@ -1,15 +1,39 @@
 /**
- * Analytics event tracking
+ * utils/analytics.ts
  *
- * Thin wrapper that:
- *   - Logs to console in dev
- *   - Will send to Amplitude / Mixpanel / PostHog in production
- *   - Never throws (analytics should never crash the app)
+ * Thin PostHog wrapper.
+ *   - In development: logs to console only
+ *   - In production:  sends events to PostHog
+ *
+ * Call initAnalytics() once at app startup (in _layout.tsx).
+ * The `track`, `identify`, `screen`, and `reset` functions are safe to call
+ * before init — they queue until PostHog is ready, or no-op on failure.
  */
+
+import { Config } from '@/constants/Config';
 
 type EventProperties = Record<string, string | number | boolean | null | undefined>;
 
-// ─── Event names ──────────────────────────────────────────────────────────
+// ─── PostHog lazy singleton ───────────────────────────────────────────────────
+
+let _ph: any = null;
+
+export function initAnalytics(): void {
+  if (_ph || __DEV__) return;
+  try {
+    // Lazy import so bundle-splitting keeps PostHog out of the critical path
+    const PostHog = require('posthog-react-native').default;
+    _ph = new PostHog(Config.POSTHOG_API_KEY, {
+      host:                Config.POSTHOG_HOST,
+      captureAppLifecycleEvents: true,
+      captureDeepLinks:          true,
+    });
+  } catch (e) {
+    console.warn('[Analytics] PostHog init failed', e);
+  }
+}
+
+// ─── Event names ──────────────────────────────────────────────────────────────
 
 export const Events = {
   // Onboarding
@@ -62,20 +86,20 @@ export const Events = {
   DARK_MODE_TOGGLE:       'dark_mode_toggle',
 
   // Streak
-  STREAK_MILESTONE:       'streak_milestone',  // 3, 7, 30, 100 days
+  STREAK_MILESTONE:       'streak_milestone',
 } as const;
 
 export type EventName = typeof Events[keyof typeof Events];
 
-// ─── Core track function ──────────────────────────────────────────────────
+// ─── Core functions ───────────────────────────────────────────────────────────
 
 export function track(event: EventName, properties?: EventProperties): void {
   try {
     if (__DEV__) {
       console.log(`[Analytics] ${event}`, properties ?? {});
+      return;
     }
-    // Production: Amplitude.logEvent(event, properties);
-    // or: posthog.capture(event, properties);
+    _ph?.capture(event, properties);
   } catch {}
 }
 
@@ -83,14 +107,15 @@ export function identify(userId: string, traits?: EventProperties): void {
   try {
     if (__DEV__) {
       console.log(`[Analytics] identify(${userId})`, traits ?? {});
+      return;
     }
-    // Production: Amplitude.setUserId(userId); Amplitude.setUserProperties(traits);
+    _ph?.identify(userId, traits);
   } catch {}
 }
 
 export function reset(): void {
   try {
-    // Production: Amplitude.clearUserProperties(); Amplitude.setUserId(null);
+    _ph?.reset();
   } catch {}
 }
 
@@ -98,6 +123,8 @@ export function screen(name: string, properties?: EventProperties): void {
   try {
     if (__DEV__) {
       console.log(`[Analytics] screen: ${name}`, properties ?? {});
+      return;
     }
+    _ph?.screen(name, properties);
   } catch {}
 }

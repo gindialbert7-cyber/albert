@@ -1,17 +1,19 @@
 /**
- * contentService — Book content retrieval with Sefaria integration.
+ * contentService — Book content retrieval with multi-source fallback chain.
  *
  * Priority chain for each chapter:
- *   1. In-memory cache  (fastest — current session)
- *   2. Sefaria API      (real, authoritative text — cached 7 days in AsyncStorage)
- *   3. Bundled sample   (always works offline, covers key books)
- *   4. Empty fallback   (never crashes)
+ *   1. In-memory cache           (fastest — current session)
+ *   2. Supabase Storage CDN      (canonical uploaded content — 7-day AsyncStorage cache)
+ *   3. Sefaria API               (authoritative text for classical works — 7-day cache)
+ *   4. Bundled sample            (always works offline, covers key books)
+ *   5. Empty fallback            (never crashes)
  */
 
 import { SAMPLE_CONTENT, TextSection } from '@/constants/SampleText';
 import { ALL_BOOKS } from '@/constants/Books';
 import { getSefariaChapterRef } from '@/constants/SefariaRefs';
 import { fetchSefariaRef, prefetchSefariaRefs } from './sefariaService';
+import { fetchChapterFromStorage, prefetchChapters } from './bookStorageService';
 
 export interface ChapterContent {
   chapterId:  string;
@@ -62,7 +64,23 @@ async function fetchChapter(
   const mem = _memCache.get(mk);
   if (mem) return mem;
 
-  // 2. Try Sefaria
+  // 2. Supabase Storage CDN (uploaded book content)
+  const stored = await fetchChapterFromStorage(bookId, chapterId);
+  if (stored && stored.sections.length > 0) {
+    const chapter: ChapterContent = {
+      chapterId,
+      title:       stored.title ?? chapterTitle,
+      heTitle:     stored.heTitle,
+      sections:    stored.sections,
+      pageCount:   pages,
+      fromSefaria: false,
+      sefariaRef:  stored.sefariaRef,
+    };
+    _memCache.set(mk, chapter);
+    return chapter;
+  }
+
+  // 3. Try Sefaria (classical/public-domain works)
   const sefariaRef = getSefariaChapterRef(bookId, chapterIdx);
   if (sefariaRef) {
     const result = await fetchSefariaRef(sefariaRef);
@@ -82,7 +100,7 @@ async function fetchChapter(
     }
   }
 
-  // 3. Bundled sample (uses per-book content if available, else 'default')
+  // 4. Bundled sample (uses per-book content if available, else 'default')
   const samples = SAMPLE_CONTENT[bookId] ?? SAMPLE_CONTENT['default'] ?? EMPTY_SECTIONS;
   const chapter: ChapterContent = {
     chapterId,
@@ -164,16 +182,23 @@ export const contentService = {
 
   /**
    * Prefetch the next N chapters for a book being read.
+   * Pre-warms both Supabase Storage CDN and Sefaria caches.
    */
   prefetchAheadChapters: (bookId: string, fromChapter: number, count = 3): void => {
     const book = ALL_BOOKS.find(b => b.id === bookId);
     const total = book?.chapters?.length ?? 0;
-    const refs: string[] = [];
+    const sefariaRefs: string[] = [];
+    const chapterIds:  string[] = [];
+
     for (let i = fromChapter + 1; i < Math.min(fromChapter + 1 + count, total); i++) {
+      const ch  = book?.chapters?.[i];
+      if (ch) chapterIds.push(ch.id);
       const ref = getSefariaChapterRef(bookId, i);
-      if (ref) refs.push(ref);
+      if (ref) sefariaRefs.push(ref);
     }
-    prefetchSefariaRefs(refs);
+
+    if (chapterIds.length > 0) prefetchChapters(bookId, chapterIds);
+    if (sefariaRefs.length > 0) prefetchSefariaRefs(sefariaRefs);
   },
 
   /**

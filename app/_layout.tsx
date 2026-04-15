@@ -10,6 +10,16 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { initNotifications } from '@/services/notificationService';
 import { configurePurchases, getCustomerInfo, isSubscriptionActive, inferTier } from '@/services/purchaseService';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { supabase } from '@/lib/supabase';
+import { getCurrentSession } from '@/services/authService';
+import { syncService } from '@/services/syncService';
+import { initAnalytics, identify } from '@/utils/analytics';
+import { initSentry, setUser as setSentryUser } from '@/utils/sentry';
+
+// Init observability as early as possible — before any render
+initSentry();
+initAnalytics();
 import {
   FrankRuhlLibre_400Regular,
   FrankRuhlLibre_500Medium,
@@ -55,6 +65,36 @@ export default function RootLayout() {
 
   useEffect(() => {
     initNotifications();
+  }, []);
+
+  // Configure RevenueCat once fonts load (auth-resolution hook).
+  // In stub mode (SDK not installed) this no-ops safely.
+  // Supabase auth state listener — keeps useAuthStore in sync with Supabase session
+  useEffect(() => {
+    // Restore persisted session on launch
+    getCurrentSession()
+      .then(result => useAuthStore.getState().setSession(result))
+      .catch(() => {});
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        try {
+          const result = await getCurrentSession();
+          useAuthStore.getState().setSession(result);
+          identify(session.user.id);
+          setSentryUser(session.user.id);
+          // Pull remote user data on first sign-in / token refresh
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            syncService.pullAll(session.user.id).catch(() => {});
+          }
+        } catch {}
+      } else {
+        useAuthStore.getState().setSession(null);
+        setSentryUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Configure RevenueCat once fonts load (auth-resolution hook).

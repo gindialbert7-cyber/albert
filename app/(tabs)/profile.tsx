@@ -178,7 +178,7 @@ export default function ProfileScreen() {
           ) : (
             <SettingsRow icon="👤" label="Sign In / Register" value="→" onPress={() => router.push('/auth/sign-in')} />
           )}
-          <SettingsRow icon="☁️" label="Sync Across Devices" value={user ? 'Coming Soon' : 'Sign in to sync'} />
+          <SettingsRow icon="☁️" label="Sync Across Devices" value={user ? '✓ Active' : 'Sign in to sync'} />
           <SettingsRow
             icon="🎟️"
             label="Redeem Promo Code"

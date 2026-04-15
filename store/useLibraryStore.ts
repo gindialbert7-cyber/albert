@@ -112,6 +112,10 @@ interface LibraryState {
   updateWordNote:   (id: string, patch: Partial<Pick<WordNote, 'noteText' | 'color'>>) => void;
   deleteWordNote:   (id: string) => void;
   getNotesForChapter: (bookId: string, chapterId: string) => WordNote[];
+  /** Sync variants — insert with explicit id/timestamps from remote (no duplication) */
+  syncBookmark:     (bm: BookmarkItem) => void;
+  syncHighlight:    (hl: HighlightItem) => void;
+  syncWordNote:     (note: WordNote) => void;
 }
 
 let nextId = Date.now();
@@ -225,6 +229,22 @@ export const useLibraryStore = create<LibraryState>()(
 
       getNotesForChapter: (bookId, chapterId) =>
         get().wordNotes.filter(n => n.bookId === bookId && n.chapterId === chapterId),
+
+      // Sync variants (accept full item with remote id — no-op if id already exists)
+      syncBookmark: (bm) =>
+        set(s => s.bookmarks.some(b => b.id === bm.id)
+          ? {}
+          : { bookmarks: [...s.bookmarks, bm] }),
+
+      syncHighlight: (hl) =>
+        set(s => s.highlights.some(h => h.id === hl.id)
+          ? {}
+          : { highlights: [...s.highlights, hl] }),
+
+      syncWordNote: (note) =>
+        set(s => s.wordNotes.some(n => n.id === note.id)
+          ? {}
+          : { wordNotes: [...s.wordNotes, note] }),
     }),
     {
       name:    'albert-library-v2',

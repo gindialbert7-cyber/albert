@@ -26,9 +26,9 @@ import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
-import { Config } from '@/constants/Config';
 import GoldDivider from '@/components/ui/GoldDivider';
 import { track, Events } from '@/utils/analytics';
+import { supabase } from '@/lib/supabase';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,24 +36,23 @@ type RedeemResult =
   | { success: true;  tier: 'monthly' | 'annual' | 'lifetime'; days: number; message: string }
   | { success: false; error: string };
 
-// ── Redeem logic ─────────────────────────────────────────────────────────────
+// ── Redeem logic (via Supabase Edge Function) ────────────────────────────────
 
 async function redeemCode(code: string): Promise<RedeemResult> {
   const normalised = code.trim().toUpperCase();
   if (!normalised) return { success: false, error: 'Please enter a promo code.' };
 
   try {
-    const resp = await fetch(`${Config.API_BASE_URL}/promo/redeem`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ code: normalised }),
-      signal:  AbortSignal.timeout(10_000),
+    const { data, error } = await supabase.functions.invoke('redeem-promo', {
+      body: { code: normalised },
     });
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
-      return { success: false, error: body?.message ?? `Error ${resp.status}` };
+
+    if (error) {
+      // Supabase wraps HTTP errors in error.message
+      const msg = (error as any)?.context?.json?.error ?? error.message ?? 'Redemption failed';
+      return { success: false, error: msg };
     }
-    const data = await resp.json();
+
     return {
       success: true,
       tier:    data.tier ?? 'monthly',

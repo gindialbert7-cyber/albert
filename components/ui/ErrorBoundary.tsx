@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Fonts } from '@/constants/Typography';
 import { Palette } from '@/constants/Colors';
 import { Space, Radius } from '@/constants/Spacing';
+import { captureException } from '@/utils/sentry';
 
 interface Props {
   children:    React.ReactNode;
@@ -40,7 +41,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (__DEV__) {
       console.error('[ErrorBoundary]', error, info);
     }
-    // Production: Sentry.captureException(error, { extra: info });
+    captureException(error, { componentStack: info.componentStack ?? '' });
   }
 
   recover = () => this.setState({ hasError: false, error: null });

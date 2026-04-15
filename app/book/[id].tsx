@@ -448,8 +448,8 @@ export default function BookReaderScreen() {
                 {renderSection(
                   section, i, colors, engSize, hebSize, lhMult,
                   getHighlightColor(i),
-                  () => handleLongPressSection(i, section.content),
-                  () => handleShare(section.content),
+                  () => handleLongPressSection(i, section.content ?? ''),
+                  () => handleShare(section.content ?? ''),
                 )}
                 {section.audioId && (
                   <AudioSection
@@ -664,8 +664,8 @@ function DualColumnView({
               {renderSection(
                 s, row.idx, colors, engSize, hebSize, lh,
                 getHighlightColor(row.idx),
-                () => onLongPressSection(row.idx, s.content),
-                () => onShareSection(s.content),
+                () => onLongPressSection(row.idx, s.content ?? ''),
+                () => onShareSection(s.content ?? ''),
               )}
               {s.audioId && (
                 <AudioSection
@@ -692,7 +692,7 @@ function DualColumnView({
               {/* English (left) */}
               <Pressable
                 style={dualStyles.col}
-                onLongPress={() => onLongPressSection(row.enIdx, en.content)}
+                onLongPress={() => onLongPressSection(row.enIdx, en.content ?? '')}
               >
                 <View style={[dualStyles.colInner, enHl ? { backgroundColor: enHl + '55' } : null]}>
                   {en.verseRef && (
@@ -715,7 +715,7 @@ function DualColumnView({
               {/* Hebrew (right) */}
               <Pressable
                 style={dualStyles.col}
-                onLongPress={() => onLongPressSection(row.heIdx, he.content)}
+                onLongPress={() => onLongPressSection(row.heIdx, he.content ?? '')}
               >
                 <View style={[dualStyles.colInner, heHl ? { backgroundColor: heHl + '55' } : null]}>
                   {he.verseRef && (
