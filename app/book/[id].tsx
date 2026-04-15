@@ -1,7 +1,7 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Modal, TouchableOpacity,
-  Pressable, Dimensions, Platform, Share, Alert,
+  Pressable, Dimensions, Platform, Share, Alert, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { ALL_BOOKS } from '@/constants/Books';
-import { SAMPLE_CONTENT, TextSection } from '@/constants/SampleText';
+import { TextSection } from '@/constants/SampleText';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
@@ -19,6 +19,7 @@ import { useLibraryStore } from '@/store/useLibraryStore';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 import { useReaderColors } from '@/hooks/useTheme';
 import { track, Events } from '@/utils/analytics';
+import { contentService } from '@/services/contentService';
 
 import ReaderToolbar from '@/components/reader/ReaderToolbar';
 import ReaderSettings from '@/components/reader/ReaderSettings';
@@ -51,6 +52,8 @@ export default function BookReaderScreen() {
   const [toolbarVisible, setToolbarVisible] = useState(true);
   const [settingsOpen,   setSettingsOpen]   = useState(false);
   const [tocOpen,        setTocOpen]        = useState(false);
+  const [content,        setContent]        = useState<TextSection[]>([]);
+  const [contentLoading, setContentLoading] = useState(true);
   const [activeChapter,  setActiveChapter]  = useState(0);
   const [picker,         setPicker]         = useState<HighlightPickerState>({ visible: false, sectionIdx: 0, text: '' });
   const [contentHeight,  setContentHeight]  = useState(1);
@@ -88,6 +91,23 @@ export default function BookReaderScreen() {
     }
   }, [activeChapter]);
 
+  // Load chapter content from Sefaria / contentService
+  useEffect(() => {
+    if (!book) return;
+    let cancelled = false;
+    setContentLoading(true);
+    contentService.getChapterByIndex(book.id, activeChapter).then(ch => {
+      if (cancelled) return;
+      setContent(ch.sections);
+      setContentLoading(false);
+      // Prefetch next 2 chapters silently
+      contentService.prefetchAheadChapters(book.id, activeChapter, 2);
+    }).catch(() => {
+      if (!cancelled) setContentLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [book?.id, activeChapter]);
+
   // Restore last position when opening
   React.useEffect(() => {
     const pos = positions[book?.id ?? ''];
@@ -108,7 +128,6 @@ export default function BookReaderScreen() {
   }
 
   const chapter     = book.chapters[activeChapter];
-  const content     = SAMPLE_CONTENT[book.id] ?? SAMPLE_CONTENT['default'];
   const isPaywalled = book.requiresSub && !isActive;
   const isBookmarked = bookmarks.some(
     bm => bm.bookId === book.id && bm.chapterId === chapter?.id,
@@ -155,7 +174,7 @@ export default function BookReaderScreen() {
         chapterId:    chapter.id,
         chapterTitle: chapter.title,
         page:         1,
-        excerpt:      content.find(s => s.type === 'english' || s.type === 'hebrew')?.content.slice(0, 80),
+        excerpt:      content.find((s: TextSection) => s.type === 'english' || s.type === 'hebrew')?.content.slice(0, 80),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
@@ -322,13 +341,22 @@ export default function BookReaderScreen() {
           <GoldDivider marginVertical={16} opacity={0.25} />
 
           {/* ── Actual text content ─────────────────────────────────── */}
-          {(isPaywalled ? content.slice(0, 3) : content).map((section, i) =>
-            renderSection(
-              section, i, colors, fontSize, hebrewFontSize, lineHeight,
-              getHighlightColor(i),
-              () => handleLongPressSection(i, section.content),
-              () => handleShare(section.content),
-            ),
+          {contentLoading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={colors.gold} />
+              <Text style={[styles.loadingText, { color: colors.muted }]}>
+                Loading text…
+              </Text>
+            </View>
+          ) : (
+            (isPaywalled ? content.slice(0, 3) : content).map((section: TextSection, i: number) =>
+              renderSection(
+                section, i, colors, fontSize, hebrewFontSize, lineHeight,
+                getHighlightColor(i),
+                () => handleLongPressSection(i, section.content),
+                () => handleShare(section.content),
+              ),
+            )
           )}
 
           {/* ── Paywall curtain ─────────────────────────────────────── */}
@@ -755,6 +783,18 @@ const styles = StyleSheet.create({
   navBtnText: {
     fontFamily: Fonts.sansMedium,
     fontSize:   14,
+  },
+
+  // Content loading
+  loadingWrap: {
+    alignItems:     'center',
+    justifyContent: 'center',
+    paddingVertical: Space[12],
+    gap:            Space[4],
+  },
+  loadingText: {
+    fontFamily: Fonts.serifItalic,
+    fontSize:   15,
   },
 
   // Error
