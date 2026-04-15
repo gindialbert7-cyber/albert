@@ -205,7 +205,7 @@ export const CLASSIC_SEFARIM: Book[] = [
     isFeatured: true,
     requiresSub: true,
     description:
-      'Maimonides' monumental 14-volume codification of the entire oral law — written in lucid, elegant Hebrew and covering every topic in halacha.',
+      "Maimonides' monumental 14-volume codification of the entire oral law — written in lucid, elegant Hebrew and covering every topic in halacha.",
     tags: ['Rambam', 'Mishneh Torah', 'Halacha', 'Maimonides', 'Classic'],
     chapters: [
       { id: 'sefer-hamadah', title: 'Sefer HaMadah', hebrewTitle: 'ספר המדע', pages: 120 },
