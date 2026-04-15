@@ -50,10 +50,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # ── 4. Install web dependencies ───────────────────────────────────────────────
 Write-Host "`n[4/4] Installing web dependencies (react-dom, react-native-web)..." -ForegroundColor Yellow
-npx expo install react-dom react-native-web --non-interactive 2>$null
-if ($LASTEXITCODE -ne 0) {
-    npm install react-dom@18.3.1 react-native-web --legacy-peer-deps
-}
+npm install react-dom@18.3.1 react-native-web --legacy-peer-deps
 Write-Host "  Web dependencies installed." -ForegroundColor Green
 
 # ── Done ──────────────────────────────────────────────────────────────────────
