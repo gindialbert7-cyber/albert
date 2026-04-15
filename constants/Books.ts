@@ -89,7 +89,7 @@ export const CLASSIC_SEFARIM: Book[] = [
     isClassic: true,
     requiresSub: false,
     description:
-      'The foundational text of the Jewish people, paired with Rashi's indispensable commentary — the first book printed with Hebrew type and still the essential companion for every Torah student.',
+      "The foundational text of the Jewish people, paired with Rashi's indispensable commentary — the first book printed with Hebrew type and still the essential companion for every Torah student.",
     tags: ['Torah', 'Chumash', 'Rashi', 'Commentary', 'Weekly Parasha'],
     chapters: [
       { id: 'bereishis', title: 'Bereishis', hebrewTitle: 'בְּרֵאשִׁית', pages: 52 },
@@ -176,7 +176,7 @@ export const CLASSIC_SEFARIM: Book[] = [
     isClassic: true,
     requiresSub: true,
     description:
-      'The definitive code of Jewish law — Orach Chaim, Yoreh De'ah, Even HaEzer, and Choshen Mishpat — as it has been studied for five centuries.',
+      "The definitive code of Jewish law — Orach Chaim, Yoreh De'ah, Even HaEzer, and Choshen Mishpat — as it has been studied for five centuries.",
     tags: ['Halacha', 'Jewish Law', 'Shulchan Aruch', 'Code'],
     chapters: [
       { id: 'orach-chaim', title: 'Orach Chaim', hebrewTitle: 'אורח חיים', pages: 400 },
@@ -291,7 +291,7 @@ export const CLASSIC_SEFARIM: Book[] = [
     isClassic: true,
     requiresSub: true,
     description:
-      'The Ramchal's masterwork on character refinement and spiritual ascent — arguably the most influential work of Jewish ethics of the past 300 years.',
+      "The Ramchal's masterwork on character refinement and spiritual ascent — arguably the most influential work of Jewish ethics of the past 300 years.",
     tags: ['Mussar', 'Ramchal', 'Ethics', 'Character', 'Spirituality'],
     chapters: [
       { id: 'intro', title: 'Introduction', hebrewTitle: 'הקדמה', pages: 12 },
@@ -350,7 +350,7 @@ export const MODERN_BOOKS: Book[] = [
     isFeatured: true,
     requiresSub: true,
     description:
-      'Rabbi Sacks's profound exploration of how science and religion are not enemies but partners in humanity's search for meaning.',
+      "Rabbi Sacks's profound exploration of how science and religion are not enemies but partners in humanity's search for meaning.",
     tags: ['Rabbi Sacks', 'Philosophy', 'Science', 'Religion', 'Meaning'],
     chapters: [
       { id: 'ch1', title: 'The Conflict That Never Was', pages: 30 },
@@ -394,7 +394,7 @@ export const MODERN_BOOKS: Book[] = [
     isFeatured: true,
     requiresSub: true,
     description:
-      'The Rav's iconic meditation on the dual nature of man as reflected in the two creation narratives — one of the great works of 20th-century Jewish thought.',
+      "The Rav's iconic meditation on the dual nature of man as reflected in the two creation narratives — one of the great works of 20th-century Jewish thought.",
     tags: ['Soloveitchik', 'Philosophy', 'Modern Orthodox', 'Faith'],
     chapters: [
       { id: 'adam1', title: 'Adam the First', pages: 32 },
@@ -417,7 +417,7 @@ export const MODERN_BOOKS: Book[] = [
     isFeatured: true,
     requiresSub: true,
     description:
-      'Elie Wiesel's devastating and transcendent memoir of his experience as a teenager in the Nazi concentration camps.',
+      "Elie Wiesel's devastating and transcendent memoir of his experience as a teenager in the Nazi concentration camps.",
     tags: ['Holocaust', 'Memoir', 'Wiesel', 'History'],
     chapters: [
       { id: 'ch1', title: 'Part One', pages: 24 },
