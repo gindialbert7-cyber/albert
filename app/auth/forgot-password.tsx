@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 
-import { authApi } from '@/services/api';
+import { forgotPassword } from '@/services/authService';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
@@ -26,7 +26,7 @@ export default function ForgotPasswordScreen() {
     if (!isValid) return;
     setState('loading');
     try {
-      await authApi.forgotPassword(email.trim().toLowerCase());
+      await forgotPassword(email.trim().toLowerCase());
       setState('sent');
     } catch {
       setErrMsg('Something went wrong. Please try again or contact support.');

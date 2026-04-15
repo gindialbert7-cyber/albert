@@ -27,6 +27,7 @@ export interface Database {
           subscription_tier:      'free' | 'monthly' | 'annual' | 'lifetime';
           subscription_expires_at:string | null;
           is_trialing:            boolean;
+          is_admin:               boolean;
           created_at:             string;
           updated_at:             string;
         };

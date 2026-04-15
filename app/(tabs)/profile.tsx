@@ -17,6 +17,7 @@ import { Palette } from '@/constants/Colors';
 import { Config } from '@/constants/Config';
 import GoldDivider from '@/components/ui/GoldDivider';
 import { getNotifPrefs, toggleNotifications } from '@/services/notificationService';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const { tier, isActive, isTrialing, trialDaysLeft, cancelSub } = useSubscriptionStore();
@@ -29,8 +30,17 @@ export default function ProfileScreen() {
     streak, longestStreak, totalMinutesRead,
   } = useLibraryStore();
 
+  const [isAdmin, setIsAdmin] = useState(false);
   const systemScheme = useColorScheme();
   const hasActive = isActive || isTrialing;
+
+  // Check admin status whenever the logged-in user changes
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return; }
+    supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+      .then(({ data }) => setIsAdmin(data?.is_admin === true))
+      .catch(() => {});
+  }, [user?.id]);
 
   const booksRead = Object.values(positions).filter(p => p.progress > 0).length;
   const hoursRead  = Math.floor(totalMinutesRead / 60);
@@ -179,6 +189,14 @@ export default function ProfileScreen() {
             <SettingsRow icon="👤" label="Sign In / Register" value="→" onPress={() => router.push('/auth/sign-in')} />
           )}
           <SettingsRow icon="☁️" label="Sync Across Devices" value={user ? '✓ Active' : 'Sign in to sync'} />
+          {isAdmin && (
+            <SettingsRow
+              icon="⚙️"
+              label="Admin Panel"
+              value="→"
+              onPress={() => router.push('/admin')}
+            />
+          )}
           <SettingsRow
             icon="🎟️"
             label="Redeem Promo Code"
