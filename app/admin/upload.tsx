@@ -16,6 +16,7 @@ import { validateBookDocument } from '@/constants/BookSchema';
 import { Palette } from '@/constants/Colors';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
+import { AdminShell } from './components/AdminShell';
 
 type UploadStatus = 'idle' | 'validating' | 'uploading' | 'done' | 'error';
 
@@ -91,15 +92,9 @@ export default function AdminUpload() {
   const busy = status === 'validating' || status === 'uploading';
 
   return (
+    <AdminShell title="Upload Book" back="/admin/books" noScroll>
     <ScrollView style={s.root} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-
-      {/* Header */}
-      <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backBtnText}>← Books</Text>
-        </Pressable>
-        <Text style={s.title}>Upload Book</Text>
-      </View>
+      <View style={{ height: Space[4] }} />
 
       {/* Instructions */}
       <View style={s.instructions}>
@@ -185,23 +180,13 @@ export default function AdminUpload() {
 
       <View style={{ height: 80 }} />
     </ScrollView>
+    </AdminShell>
   );
 }
 
 const s: any = StyleSheet.create({
   root:    { flex: 1, backgroundColor: '#0D1220' },
   content: { padding: Space[5], maxWidth: 800, alignSelf: 'center', width: '100%' },
-
-  header: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           Space[4],
-    paddingTop:    Space[8],
-    paddingBottom: Space[5],
-  },
-  backBtn:     { paddingVertical: 8, paddingRight: 8 },
-  backBtnText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: Palette.goldMid },
-  title:       { fontFamily: Fonts.serifBold, fontSize: 24, color: '#EDE8DD' },
 
   instructions: {
     backgroundColor: '#0F1825',

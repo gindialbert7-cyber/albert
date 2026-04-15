@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { Palette } from '@/constants/Colors';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
+import { AdminShell } from './components/AdminShell';
 
 type Tier = 'monthly' | 'annual' | 'lifetime';
 
@@ -141,16 +142,17 @@ export default function AdminPromo() {
     ]);
   }
 
-  if (loading) return <View style={s.loading}><ActivityIndicator size="large" color={Palette.goldBright} /></View>;
+  if (loading) return (
+    <AdminShell title="Promo Codes">
+      <View style={s.loading}><ActivityIndicator size="large" color={Palette.goldBright} /></View>
+    </AdminShell>
+  );
 
   return (
+    <AdminShell title={`Promo Codes (${codes.length})`} back="/admin" noScroll>
     <View style={s.root}>
-      {/* Header */}
-      <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backBtnText}>← Dashboard</Text>
-        </Pressable>
-        <Text style={s.title}>Promo Codes  <Text style={s.count}>({codes.length})</Text></Text>
+      {/* Create button row */}
+      <View style={s.subHeader}>
         <Pressable style={s.createBtn} onPress={() => setShowCreate(true)}>
           <Text style={s.createBtnText}>+ New Code</Text>
         </Pressable>
@@ -333,6 +335,7 @@ export default function AdminPromo() {
         </View>
       </Modal>
     </View>
+    </AdminShell>
   );
 }
 
@@ -347,17 +350,13 @@ function Field({ label, children, required }: { label: string; children: React.R
 
 const s = StyleSheet.create({
   root:    { flex: 1, backgroundColor: '#0D1220' },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0D1220' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
 
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: Space[5], paddingTop: Space[8],
+  subHeader: {
+    flexDirection: 'row', justifyContent: 'flex-end',
+    padding: Space[4],
     borderBottomWidth: 1, borderBottomColor: '#1A2340',
   },
-  backBtn:      { paddingVertical: 8, paddingRight: 16 },
-  backBtnText:  { fontFamily: Fonts.sansMedium, fontSize: 14, color: Palette.goldMid },
-  title:        { fontFamily: Fonts.serifBold, fontSize: 20, color: '#EDE8DD', flex: 1 },
-  count:        { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#8B8070' },
   createBtn:    { backgroundColor: Palette.goldBright, paddingHorizontal: 16, paddingVertical: 8, borderRadius: Radius.md },
   createBtnText:{ fontFamily: Fonts.sansBold, fontSize: 14, color: Palette.navyDeep },
 

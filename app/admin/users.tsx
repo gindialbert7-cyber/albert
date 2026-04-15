@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { Palette } from '@/constants/Colors';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
+import { AdminShell } from './components/AdminShell';
 
 type Tier = 'free' | 'monthly' | 'annual' | 'lifetime';
 
@@ -107,7 +108,11 @@ export default function AdminUsers() {
     );
   }
 
-  if (loading) return <View style={s.loading}><ActivityIndicator size="large" color={Palette.goldBright} /></View>;
+  if (loading) return (
+    <AdminShell title="Users">
+      <View style={s.loading}><ActivityIndicator size="large" color={Palette.goldBright} /></View>
+    </AdminShell>
+  );
 
   const tierCounts = users.reduce((acc, u) => {
     acc[u.subscription_tier] = (acc[u.subscription_tier] ?? 0) + 1;
@@ -115,14 +120,8 @@ export default function AdminUsers() {
   }, {} as Record<string, number>);
 
   return (
+    <AdminShell title={`Users (${users.length})`} back="/admin" noScroll>
     <View style={s.root}>
-      {/* Header */}
-      <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backBtnText}>← Dashboard</Text>
-        </Pressable>
-        <Text style={s.title}>Users  <Text style={s.count}>({users.length})</Text></Text>
-      </View>
 
       {/* Tier breakdown */}
       <View style={s.tierRow}>
@@ -235,22 +234,13 @@ export default function AdminUsers() {
         )}
       </Modal>
     </View>
+    </AdminShell>
   );
 }
 
 const s = StyleSheet.create({
   root:    { flex: 1, backgroundColor: '#0D1220' },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0D1220' },
-
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: Space[5], paddingTop: Space[8],
-    borderBottomWidth: 1, borderBottomColor: '#1A2340',
-  },
-  backBtn:    { paddingVertical: 8, paddingRight: 16 },
-  backBtnText:{ fontFamily: Fonts.sansMedium, fontSize: 14, color: Palette.goldMid },
-  title:      { fontFamily: Fonts.serifBold, fontSize: 20, color: '#EDE8DD', flex: 1 },
-  count:      { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#8B8070' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
 
   tierRow:   { flexDirection: 'row', padding: Space[4], gap: Space[3] },
   tierCard:  { flex: 1, backgroundColor: '#141B30', borderRadius: Radius.md, padding: Space[3], alignItems: 'center', borderWidth: 1, borderColor: '#1E2A40' },

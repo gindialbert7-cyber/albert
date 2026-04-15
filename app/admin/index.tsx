@@ -8,13 +8,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, useWindowDimensions, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Palette } from '@/constants/Colors';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
+import { AdminShell } from './components/AdminShell';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,10 +44,14 @@ interface DashboardStats {
 // ── Nav items ─────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { label: 'Books',       icon: '📚', route: '/admin/books'  as const },
-  { label: 'Upload Book', icon: '⬆️', route: '/admin/upload' as const },
-  { label: 'Promo Codes', icon: '🎟️', route: '/admin/promo'  as const },
-  { label: 'Users',       icon: '👥', route: '/admin/users'  as const },
+  { label: 'Books',         icon: '📚', route: '/admin/books'         as const },
+  { label: 'Upload',        icon: '⬆️', route: '/admin/upload'        as const },
+  { label: 'Featured',      icon: '★',  route: '/admin/featured'      as const },
+  { label: 'Audio',         icon: '♪',  route: '/admin/audio'         as const },
+  { label: 'Users',         icon: '👥', route: '/admin/users'         as const },
+  { label: 'Promo Codes',   icon: '🎟️', route: '/admin/promo'         as const },
+  { label: 'Notifications', icon: '🔔', route: '/admin/notifications' as const },
+  { label: 'Settings',      icon: '⚙️', route: '/admin/settings'      as const },
 ];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -55,6 +60,8 @@ export default function AdminDashboard() {
   const [stats,     setStats]     = useState<DashboardStats | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width >= 768;
 
   const loadStats = useCallback(async () => {
     try {
@@ -118,42 +125,42 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <View style={s.loadingWrap}>
-        <ActivityIndicator size="large" color={Palette.goldBright} />
-      </View>
+      <AdminShell title="Dashboard">
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color={Palette.goldBright} />
+        </View>
+      </AdminShell>
     );
   }
 
   return (
-    <ScrollView
-      style={s.root}
-      contentContainerStyle={s.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Palette.goldBright} />}
-    >
-      {/* Header */}
-      <View style={s.header}>
-        <View>
-          <Text style={s.headerHebrew}>ניהול</Text>
-          <Text style={s.headerTitle}>Albert Admin</Text>
-        </View>
-        <Pressable style={s.backBtn} onPress={() => router.replace('/(tabs)')}>
-          <Text style={s.backBtnText}>← App</Text>
-        </Pressable>
-      </View>
-
-      {/* Nav grid */}
-      <View style={s.navGrid}>
-        {NAV_ITEMS.map(item => (
-          <Pressable
-            key={item.route}
-            style={s.navCard}
-            onPress={() => router.push(item.route)}
-          >
-            <Text style={s.navCardIcon}>{item.icon}</Text>
-            <Text style={s.navCardLabel}>{item.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+    <AdminShell title="Dashboard">
+      <ScrollView
+        style={s.root}
+        contentContainerStyle={s.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Palette.goldBright} />}
+      >
+        {/* Mobile-only nav grid (sidebar covers this on web) */}
+        {!isWide && (
+          <>
+            <View style={s.header}>
+              <Text style={s.headerHebrew}>ניהול</Text>
+              <Text style={s.headerTitle}>Dashboard</Text>
+            </View>
+            <View style={s.navGrid}>
+              {NAV_ITEMS.map(item => (
+                <Pressable
+                  key={item.route}
+                  style={s.navCard}
+                  onPress={() => router.push(item.route)}
+                >
+                  <Text style={s.navCardIcon}>{item.icon}</Text>
+                  <Text style={s.navCardLabel}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
 
       {stats && (
         <>
@@ -209,8 +216,9 @@ export default function AdminDashboard() {
         </>
       )}
 
-      <View style={{ height: 60 }} />
-    </ScrollView>
+        <View style={{ height: 60 }} />
+      </ScrollView>
+    </AdminShell>
   );
 }
 

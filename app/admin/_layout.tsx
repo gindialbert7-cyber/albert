@@ -82,11 +82,15 @@ export default function AdminLayout() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index"  />
-      <Stack.Screen name="books"  />
-      <Stack.Screen name="promo"  />
-      <Stack.Screen name="users"  />
-      <Stack.Screen name="upload" />
+      <Stack.Screen name="index"         />
+      <Stack.Screen name="books"         />
+      <Stack.Screen name="promo"         />
+      <Stack.Screen name="users"         />
+      <Stack.Screen name="upload"        />
+      <Stack.Screen name="featured"      />
+      <Stack.Screen name="audio"         />
+      <Stack.Screen name="notifications" />
+      <Stack.Screen name="settings"      />
     </Stack>
   );
 }
