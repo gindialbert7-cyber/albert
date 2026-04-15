@@ -2,13 +2,14 @@
   "expo": {
     "name": "Albert — Jewish eReader",
     "slug": "albert-jewish-ereader",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "albert",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "description": "Albert is the Jewish reading library — Chumash, Talmud, Halacha, Mussar, Chassidus, modern Jewish books, children's stories, and daily learning, beautifully formatted for every device.",
+    "keywords": ["jewish", "ereader", "torah", "talmud", "halacha", "chumash", "siddur", "learning"],
     "githubUrl": "https://github.com/gindialbert7-cyber/albert",
 
     "splash": {
@@ -20,17 +21,20 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.albert.ereader",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "requireFullScreen": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "UIRequiresFullScreen": false,
         "NSCameraUsageDescription": "Albert uses your camera to scan book barcodes.",
         "NSPhotoLibraryUsageDescription": "Albert may access your photos to set a profile picture.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "Albert uses audio for reading aloud features.",
+        "UIBackgroundModes": ["audio"]
       },
-      "config": {
-        "usesNonExemptEncryption": false
-      }
+      "associatedDomains": ["applinks:albert-app.com"]
     },
 
     "android": {
@@ -39,12 +43,26 @@
         "backgroundColor": "#0F1A35"
       },
       "package": "com.albert.ereader",
-      "versionCode": 11,
+      "versionCode": 12,
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.ACCESS_NETWORK_STATE"
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.SCHEDULE_EXACT_ALARM"
       ],
-      "allowBackup": false
+      "allowBackup": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "albert-app.com", "pathPrefix": "/book" },
+            { "scheme": "https", "host": "albert-app.com", "pathPrefix": "/promo" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
 
     "web": {
@@ -64,6 +82,20 @@
           "resizeMode": "contain",
           "backgroundColor": "#0F1A35"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#E8C547",
+          "defaultChannel": "albert-reminders"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Albert uses audio for reading aloud features."
+        }
       ]
     ],
 
@@ -75,6 +107,8 @@
 
     "experiments": {
       "typedRoutes": true
-    }
+    },
+
+    "owner": "albert-ereader"
   }
 }

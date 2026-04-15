@@ -43,7 +43,7 @@ const HIGHLIGHT_COLORS = [
   { color: '#C5AAFF', label: 'Purple' },
 ];
 
-interface HighlightPickerState {
+interface NoteSheetState {
   visible:    boolean;
   sectionIdx: number;
   text:       string;
@@ -60,7 +60,7 @@ export default function BookReaderScreen() {
   const [contentLoading, setContentLoading] = useState(true);
   const [activeChapter,  setActiveChapter]  = useState(0);
   const [audioManifest,  setAudioManifest]  = useState<AudioManifest | null>(null);
-  const [picker,         setPicker]         = useState<HighlightPickerState>({ visible: false, sectionIdx: 0, text: '' });
+  const [noteSheet,      setNoteSheet]      = useState<NoteSheetState>({ visible: false, sectionIdx: 0, text: '' });
   const [contentHeight,  setContentHeight]  = useState(1);
   const [scrollPos,      setScrollPos]      = useState(0);
   const [viewportH,      setViewportH]      = useState(1);
@@ -69,6 +69,7 @@ export default function BookReaderScreen() {
     fontSize, hebrewFontSize, lineHeight,
     bookmarks, addBookmark, removeBookmark,
     addHighlight, removeHighlight, highlights,
+    addWordNote, wordNotes,
     addToLibrary, openBook, savePosition,
     positions, recordLearning,
     dualColumnByBook, setDualColumn,
@@ -227,21 +228,37 @@ export default function BookReaderScreen() {
 
   function handleLongPressSection(sectionIdx: number, text: string) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setPicker({ visible: true, sectionIdx, text });
+    setNoteSheet({ visible: true, sectionIdx, text });
   }
 
-  function handleAddHighlight(color: string) {
+  function handleSaveNote(color: string, noteText: string) {
     if (!chapter) return;
+    // Always save a highlight (visible in-reader)
     addHighlight({
       bookId:       book.id,
       bookTitle:    book.title,
       chapterId:    chapter.id,
       chapterTitle: chapter.title,
-      sectionIdx:   picker.sectionIdx,
-      text:         picker.text.slice(0, 200),
+      sectionIdx:   noteSheet.sectionIdx,
+      text:         noteSheet.text.slice(0, 200),
       color,
     });
-    setPicker({ visible: false, sectionIdx: 0, text: '' });
+    // If user wrote a note, persist it as a WordNote too
+    if (noteText.trim()) {
+      addWordNote({
+        bookId:       book.id,
+        bookTitle:    book.title,
+        chapterId:    chapter.id,
+        chapterTitle: chapter.title,
+        sectionIdx:   noteSheet.sectionIdx,
+        wordStart:    -1,
+        wordEnd:      -1,
+        selectedText: noteSheet.text.slice(0, 200),
+        noteText:     noteText.trim(),
+        color,
+      });
+    }
+    setNoteSheet({ visible: false, sectionIdx: 0, text: '' });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
@@ -583,13 +600,13 @@ export default function BookReaderScreen() {
         </Pressable>
       </Modal>
 
-      {/* Highlight color picker */}
-      {picker.visible && (
-        <HighlightPicker
-          text={picker.text}
-          onPick={handleAddHighlight}
-          onDismiss={() => setPicker({ visible: false, sectionIdx: 0, text: '' })}
-          onShare={() => handleShare(picker.text)}
+      {/* Note sheet (color + optional note text) */}
+      {noteSheet.visible && (
+        <NoteSheet
+          text={noteSheet.text}
+          onSave={handleSaveNote}
+          onDismiss={() => setNoteSheet({ visible: false, sectionIdx: 0, text: '' })}
+          onShare={() => handleShare(noteSheet.text)}
         />
       )}
     </View>
@@ -824,35 +841,93 @@ function renderSection(
   }
 }
 
-// ── Highlight picker ──────────────────────────────────────────────────────
+// ── Note sheet — color picker + optional note text ───────────────────────────
 
-function HighlightPicker({
-  text, onPick, onDismiss, onShare,
-}: { text: string; onPick: (c: string) => void; onDismiss: () => void; onShare: () => void }) {
+import { TextInput, KeyboardAvoidingView } from 'react-native';
+
+function NoteSheet({
+  text, onSave, onDismiss, onShare,
+}: {
+  text:      string;
+  onSave:    (color: string, noteText: string) => void;
+  onDismiss: () => void;
+  onShare:   () => void;
+}) {
+  const [selectedColor, setSelectedColor] = React.useState(HIGHLIGHT_COLORS[0].color);
+  const [noteText,      setNoteText]      = React.useState('');
+
   return (
-    <Pressable style={pickerStyles.backdrop} onPress={onDismiss}>
+    <KeyboardAvoidingView
+      behavior="padding"
+      style={pickerStyles.backdrop}
+      keyboardVerticalOffset={0}
+    >
+      <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
       <Pressable style={pickerStyles.sheet} onPress={e => e.stopPropagation()}>
+
+        {/* Selected text preview */}
         <Text style={pickerStyles.previewText} numberOfLines={3}>
           "{text.slice(0, 120)}{text.length > 120 ? '…' : ''}"
         </Text>
+
         <GoldDivider marginVertical={12} opacity={0.2} />
-        <Text style={pickerStyles.label}>Highlight color</Text>
+
+        {/* Color picker */}
+        <Text style={pickerStyles.label}>Highlight colour</Text>
         <View style={pickerStyles.colorRow}>
           {HIGHLIGHT_COLORS.map(({ color, label }) => (
             <Pressable
               key={color}
-              style={[pickerStyles.colorBtn, { backgroundColor: color }]}
-              onPress={() => onPick(color)}
+              style={[
+                pickerStyles.colorBtn,
+                { backgroundColor: color },
+                selectedColor === color && pickerStyles.colorBtnSelected,
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedColor(color);
+              }}
             >
+              {selectedColor === color && (
+                <Ionicons name="checkmark" size={16} color="rgba(0,0,0,0.5)" />
+              )}
               <Text style={pickerStyles.colorLabel}>{label}</Text>
             </Pressable>
           ))}
         </View>
-        <Pressable style={pickerStyles.shareBtn} onPress={onShare}>
-          <Text style={pickerStyles.shareBtnText}>Share this passage</Text>
-        </Pressable>
+
+        {/* Note text input */}
+        <Text style={[pickerStyles.label, { marginTop: Space[3] }]}>Add a note (optional)</Text>
+        <TextInput
+          style={pickerStyles.noteInput}
+          placeholder="What does this passage mean to you…"
+          placeholderTextColor="#5A5040"
+          multiline
+          numberOfLines={3}
+          value={noteText}
+          onChangeText={setNoteText}
+          returnKeyType="done"
+          blurOnSubmit
+        />
+
+        {/* Actions */}
+        <View style={pickerStyles.actionRow}>
+          <Pressable style={pickerStyles.shareBtn} onPress={onShare}>
+            <Ionicons name="share-outline" size={15} color={Palette.goldBright} />
+            <Text style={pickerStyles.shareBtnText}>Share</Text>
+          </Pressable>
+          <Pressable
+            style={pickerStyles.saveBtn}
+            onPress={() => onSave(selectedColor, noteText)}
+          >
+            <Text style={pickerStyles.saveBtnText}>
+              {noteText.trim() ? 'Save highlight + note' : 'Save highlight'}
+            </Text>
+          </Pressable>
+        </View>
+
       </Pressable>
-    </Pressable>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1130,18 +1205,20 @@ const pickerStyles = StyleSheet.create({
   backdrop: {
     position:       'absolute',
     top:            0, left: 0, right: 0, bottom: 0,
-    backgroundColor:'rgba(0,0,0,0.5)',
+    backgroundColor:'rgba(0,0,0,0.55)',
     justifyContent: 'flex-end',
     zIndex:         200,
   },
   sheet: {
-    backgroundColor: '#1A2540',
+    backgroundColor:     '#1A2540',
     borderTopLeftRadius:  Radius.xl,
     borderTopRightRadius: Radius.xl,
-    padding:   Space[6],
-    gap:       Space[3],
-    borderTopWidth:  1,
-    borderTopColor:  Palette.goldMid + '30',
+    padding:             Space[6],
+    gap:                 Space[3],
+    borderTopWidth:      1,
+    borderTopColor:      Palette.goldMid + '30',
+    // keep sheet above keyboard
+    paddingBottom:       Platform.OS === 'ios' ? Space[8] : Space[6],
   },
   previewText: {
     fontFamily: Fonts.serifItalic,
@@ -1151,9 +1228,9 @@ const pickerStyles = StyleSheet.create({
   },
   label: {
     fontFamily:   Fonts.sansSemiBold,
-    fontSize:     12,
+    fontSize:     11,
     color:        '#5A5040',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   colorRow: {
@@ -1166,26 +1243,66 @@ const pickerStyles = StyleSheet.create({
     height:         52,
     borderRadius:   Radius.md,
     alignItems:     'center',
-    justifyContent: 'flex-end',
-    paddingBottom:  4,
+    justifyContent: 'center',
+    gap:            2,
+  },
+  colorBtnSelected: {
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.35)',
+    transform:   [{ scale: 1.08 }],
   },
   colorLabel: {
     fontFamily: Fonts.sansRegular,
     fontSize:   9,
-    color:      'rgba(0,0,0,0.6)',
+    color:      'rgba(0,0,0,0.55)',
+  },
+  noteInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius:    Radius.md,
+    borderWidth:     1,
+    borderColor:     Palette.goldMid + '25',
+    color:           '#EDE8DD',
+    fontFamily:      Fonts.serifRegular,
+    fontSize:        14,
+    lineHeight:      21,
+    paddingHorizontal: Space[4],
+    paddingTop:      Space[3],
+    paddingBottom:   Space[3],
+    minHeight:       72,
+    textAlignVertical: 'top',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap:           Space[3],
+    marginTop:     Space[1],
   },
   shareBtn: {
-    paddingVertical:   12,
-    borderRadius:      Radius.md,
-    borderWidth:       1,
-    borderColor:       Palette.goldMid + '40',
-    alignItems:        'center',
-    marginTop:         Space[2],
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             6,
+    paddingVertical: 12,
+    paddingHorizontal: Space[4],
+    borderRadius:    Radius.md,
+    borderWidth:     1,
+    borderColor:     Palette.goldMid + '40',
   },
   shareBtnText: {
     fontFamily: Fonts.sansMedium,
     fontSize:   14,
     color:      Palette.goldBright,
+  },
+  saveBtn: {
+    flex:            1,
+    paddingVertical: 14,
+    borderRadius:    Radius.md,
+    backgroundColor: Palette.goldMid,
+    alignItems:      'center',
+  },
+  saveBtnText: {
+    fontFamily:    Fonts.sansBold,
+    fontSize:      14,
+    color:         Palette.navyDeep,
+    letterSpacing: 0.2,
   },
 });
 

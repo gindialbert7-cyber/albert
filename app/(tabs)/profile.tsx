@@ -180,6 +180,12 @@ export default function ProfileScreen() {
           )}
           <SettingsRow icon="☁️" label="Sync Across Devices" value={user ? 'Coming Soon' : 'Sign in to sync'} />
           <SettingsRow
+            icon="🎟️"
+            label="Redeem Promo Code"
+            value="→"
+            onPress={() => router.push('/promo')}
+          />
+          <SettingsRow
             icon="🎁"
             label="Gift a Subscription"
             value="→"
@@ -224,7 +230,7 @@ export default function ProfileScreen() {
         <View style={styles.footer}>
           <Text style={styles.footerHebrew}>אַלְבֶּרְט</Text>
           <Text style={styles.footerTagline}>The Jewish Reading Library</Text>
-          <Text style={styles.footerVersion}>Version 1.1.0</Text>
+          <Text style={styles.footerVersion}>Version {Config.APP_VERSION} ({Config.BUILD_NUMBER})</Text>
         </View>
 
         <View style={{ height: Space[8] }} />

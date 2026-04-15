@@ -15,7 +15,9 @@
       },
       "env": {
         "APP_ENV": "development",
-        "API_BASE_URL": "https://api-dev.albert.app"
+        "API_BASE_URL": "https://api-dev.albert-app.com/v1",
+        "REVENUECAT_KEY_IOS": "appl_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "REVENUECAT_KEY_ANDROID": "goog_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
       }
     },
     "preview": {
@@ -29,7 +31,9 @@
       },
       "env": {
         "APP_ENV": "staging",
-        "API_BASE_URL": "https://api-staging.albert.app"
+        "API_BASE_URL": "https://api-staging.albert-app.com/v1",
+        "REVENUECAT_KEY_IOS": "appl_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "REVENUECAT_KEY_ANDROID": "goog_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
       }
     },
     "production": {
@@ -43,20 +47,38 @@
       },
       "env": {
         "APP_ENV": "production",
-        "API_BASE_URL": "https://api.albert.app"
+        "API_BASE_URL": "https://api.albert-app.com/v1",
+        "REVENUECAT_KEY_IOS": "appl_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "REVENUECAT_KEY_ANDROID": "goog_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
       }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appleId": "developer@albert.app",
-        "ascAppId": "ALBERT_APP_STORE_ID",
-        "appleTeamId": "ALBERT_TEAM_ID"
+        "appleId": "developer@albert-app.com",
+        "ascAppId": "ALBERT_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "ALBERT_APPLE_TEAM_ID",
+        "language": "en-US",
+        "sku": "com.albert.ereader"
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "production"
+        "track": "internal",
+        "releaseStatus": "draft",
+        "changesNotSentForReview": false
+      }
+    },
+    "preview": {
+      "ios": {
+        "appleId": "developer@albert-app.com",
+        "ascAppId": "ALBERT_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "ALBERT_APPLE_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }

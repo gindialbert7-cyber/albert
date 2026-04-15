@@ -1,26 +1,24 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, SectionList, Pressable,
-  Platform, Alert, Share,
+  View, Text, StyleSheet, SectionList, FlatList,
+  Pressable, Platform, Alert, Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-import { useLibraryStore, BookmarkItem, HighlightItem } from '@/store/useLibraryStore';
-import { ALL_BOOKS } from '@/constants/Books';
+import { useLibraryStore, BookmarkItem, HighlightItem, WordNote } from '@/store/useLibraryStore';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
 import GoldDivider from '@/components/ui/GoldDivider';
 
-type Tab = 'bookmarks' | 'highlights';
+type Tab = 'bookmarks' | 'highlights' | 'notes';
 
 export default function NotesScreen() {
   const [tab, setTab] = useState<Tab>('bookmarks');
-  const { bookmarks, highlights, removeBookmark, removeHighlight } = useLibraryStore();
+  const { bookmarks, highlights, wordNotes, removeBookmark, removeHighlight, deleteWordNote } = useLibraryStore();
 
   function handleOpenBookmark(bm: BookmarkItem) {
     router.push({ pathname: '/book/[id]', params: { id: bm.bookId } });
@@ -44,6 +42,23 @@ export default function NotesScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => removeHighlight(id) },
     ]);
+  }
+
+  function confirmDeleteNote(id: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert('Delete Note', 'Are you sure you want to delete this note?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteWordNote(id) },
+    ]);
+  }
+
+  function shareNote(item: WordNote) {
+    const body = item.noteText
+      ? `"${item.selectedText}"\n\nMy note: ${item.noteText}`
+      : `"${item.selectedText}"`;
+    Share.share({
+      message: `${body}\n\n— ${item.bookTitle}, ${item.chapterTitle}\n\nRead on Albert`,
+    });
   }
 
   function shareHighlight(item: HighlightItem) {
@@ -89,11 +104,12 @@ export default function NotesScreen() {
           {([
             { key: 'bookmarks',  label: 'Bookmarks', count: bookmarks.length },
             { key: 'highlights', label: 'Highlights', count: highlights.length },
+            { key: 'notes',      label: 'Notes',      count: wordNotes.length  },
           ] as { key: Tab; label: string; count: number }[]).map(t => (
             <Pressable
               key={t.key}
               style={[styles.tab, tab === t.key && styles.tabActive]}
-              onPress={() => setTab(t.key)}
+              onPress={() => { Haptics.selectionAsync(); setTab(t.key); }}
             >
               <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>
                 {t.label}
@@ -108,7 +124,29 @@ export default function NotesScreen() {
         </View>
       </SafeAreaView>
 
-      {tab === 'bookmarks' ? (
+      {tab === 'notes' ? (
+        wordNotes.length === 0 ? (
+          <EmptyState
+            hebrew="הערות שלי"
+            english="Long-press any passage in the reader and add a note to save it here."
+          />
+        ) : (
+          <FlatList
+            data={[...wordNotes].sort((a, b) => b.createdAt - a.createdAt)}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+              <WordNoteRow
+                item={item}
+                onPress={() => router.push({ pathname: '/book/[id]', params: { id: item.bookId } })}
+                onDelete={() => confirmDeleteNote(item.id)}
+                onShare={() => shareNote(item)}
+              />
+            )}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+          />
+        )
+      ) : tab === 'bookmarks' ? (
         bmSections.length === 0 ? (
           <EmptyState
             hebrew="שמור את מקומך"
@@ -263,6 +301,58 @@ function HighlightRow({ item, onPress, onRemove, onShare }: {
           accessibilityLabel="Remove highlight"
           accessibilityRole="button"
         >
+          <Ionicons name="trash-outline" size={15} color="#5A5040" />
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+}
+
+function WordNoteRow({ item, onPress, onDelete, onShare }: {
+  item:     WordNote;
+  onPress:  () => void;
+  onDelete: () => void;
+  onShare:  () => void;
+}) {
+  return (
+    <Pressable
+      style={styles.row}
+      onPress={onPress}
+      accessibilityLabel={`Note on: ${item.selectedText.slice(0, 50)}`}
+      accessibilityRole="button"
+    >
+      {/* Colour swatch */}
+      <View style={[styles.highlightSwatch, { backgroundColor: item.color }]} />
+
+      <View style={styles.rowContent}>
+        <Text style={styles.rowChapter}>
+          {item.bookTitle}  ·  {item.chapterTitle}
+        </Text>
+        {/* Highlighted passage */}
+        <Text
+          style={[styles.rowHighlightText, { backgroundColor: item.color + '55' }]}
+          numberOfLines={2}
+        >
+          {item.selectedText}
+        </Text>
+        {/* User note */}
+        {item.noteText ? (
+          <View style={styles.noteBlock}>
+            <Ionicons name="pencil-outline" size={11} color={Palette.goldMid + 'AA'} style={{ marginTop: 1 }} />
+            <Text style={styles.noteText} numberOfLines={3}>{item.noteText}</Text>
+          </View>
+        ) : null}
+        <Text style={styles.rowDate}>
+          {new Date(item.createdAt).toLocaleDateString()}
+          {item.updatedAt !== item.createdAt ? '  (edited)' : ''}
+        </Text>
+      </View>
+
+      <View style={styles.rowActions}>
+        <Pressable style={styles.actionBtn} onPress={onShare} hitSlop={8} accessibilityLabel="Share note" accessibilityRole="button">
+          <Ionicons name="share-outline" size={15} color="#5A5040" />
+        </Pressable>
+        <Pressable style={styles.actionBtn} onPress={onDelete} hitSlop={8} accessibilityLabel="Delete note" accessibilityRole="button">
           <Ionicons name="trash-outline" size={15} color="#5A5040" />
         </Pressable>
       </View>
@@ -449,6 +539,22 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansRegular,
     fontSize:   11,
     color:      '#3A4050',
+  },
+  noteBlock: {
+    flexDirection: 'row',
+    alignItems:    'flex-start',
+    gap:           6,
+    marginTop:     2,
+    paddingLeft:   4,
+    borderLeftWidth: 2,
+    borderLeftColor: Palette.goldMid + '40',
+  },
+  noteText: {
+    flex:       1,
+    fontFamily: Fonts.serifItalic,
+    fontSize:   13,
+    color:      '#A89880',
+    lineHeight: 20,
   },
   rowActions: {
     flexDirection: 'column',

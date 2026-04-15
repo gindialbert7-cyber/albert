@@ -37,6 +37,27 @@ export interface HighlightItem {
   createdAt:  number;
 }
 
+/**
+ * WordNote — stores an annotated selection inside a single TextSection.
+ * wordStart/End are character offsets within section.content; both are -1
+ * when the note covers the whole section (legacy / section-level long-press).
+ */
+export interface WordNote {
+  id:           string;
+  bookId:       string;
+  bookTitle:    string;
+  chapterId:    string;
+  chapterTitle: string;
+  sectionIdx:   number;
+  wordStart:    number;   // char offset, -1 = whole section
+  wordEnd:      number;   // char offset, -1 = whole section
+  selectedText: string;
+  noteText:     string;
+  color:        string;
+  createdAt:    number;
+  updatedAt:    number;
+}
+
 interface LibraryState {
   // Reading list
   myBooks:        string[];        // book ids
@@ -58,6 +79,9 @@ interface LibraryState {
 
   // Per-book reader preferences
   dualColumnByBook: Record<string, boolean>;
+
+  // Word-level notes
+  wordNotes: WordNote[];
 
   // Learning streak
   streak:          number;         // current consecutive days
@@ -84,6 +108,10 @@ interface LibraryState {
   setDarkMode:      (on: boolean) => void;
   setUsesSystem:    (on: boolean) => void;
   setDualColumn:    (bookId: string, on: boolean) => void;
+  addWordNote:      (note: Omit<WordNote, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateWordNote:   (id: string, patch: Partial<Pick<WordNote, 'noteText' | 'color'>>) => void;
+  deleteWordNote:   (id: string) => void;
+  getNotesForChapter: (bookId: string, chapterId: string) => WordNote[];
 }
 
 let nextId = Date.now();
@@ -97,6 +125,7 @@ export const useLibraryStore = create<LibraryState>()(
       positions:        {},
       bookmarks:        [],
       highlights:       [],
+      wordNotes:        [],
       isDarkMode:       false,
       usesSystemTheme:  true,
       fontSize:         18,
@@ -175,6 +204,27 @@ export const useLibraryStore = create<LibraryState>()(
       setUsesSystem:  (on)   => set({ usesSystemTheme: on }),
       setDualColumn:  (bookId, on) =>
         set(s => ({ dualColumnByBook: { ...s.dualColumnByBook, [bookId]: on } })),
+
+      addWordNote: (note) =>
+        set(s => ({
+          wordNotes: [
+            ...s.wordNotes,
+            { ...note, id: uid(), createdAt: Date.now(), updatedAt: Date.now() },
+          ],
+        })),
+
+      updateWordNote: (id, patch) =>
+        set(s => ({
+          wordNotes: s.wordNotes.map(n =>
+            n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n,
+          ),
+        })),
+
+      deleteWordNote: (id) =>
+        set(s => ({ wordNotes: s.wordNotes.filter(n => n.id !== id) })),
+
+      getNotesForChapter: (bookId, chapterId) =>
+        get().wordNotes.filter(n => n.bookId === bookId && n.chapterId === chapterId),
     }),
     {
       name:    'albert-library-v2',
