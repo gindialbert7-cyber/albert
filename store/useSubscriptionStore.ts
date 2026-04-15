@@ -17,6 +17,11 @@ export interface SubscriptionState {
   cancelSub:           () => void;
   startTrial:          (days?: number) => void;
   markOnboardingDone:  () => void;
+  /**
+   * Sync the store from a real RevenueCat customer info — called after
+   * configurePurchases() resolves and on any successful purchase/restore.
+   */
+  syncFromPurchase:    (tier: Exclude<SubscriptionTier, 'free'>, expiresAtISO?: string) => void;
 }
 
 export const SUBSCRIPTION_PRICES: Record<Exclude<SubscriptionTier, 'free'>, { price: string; period: string; annualNote?: string }> = {
@@ -52,6 +57,15 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       },
 
       markOnboardingDone: () => set({ hasSeenOnboarding: true }),
+
+      syncFromPurchase: (tier, expiresAtISO) => {
+        set({
+          tier,
+          isActive:     true,
+          isTrialing:   false,
+          expiresAt:    tier === 'lifetime' ? null : (expiresAtISO ?? null),
+        });
+      },
     }),
     {
       name:    'albert-subscription-v2',

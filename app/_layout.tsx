@@ -8,6 +8,8 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { initNotifications } from '@/services/notificationService';
+import { configurePurchases, getCustomerInfo, isSubscriptionActive, inferTier } from '@/services/purchaseService';
+import { useSubscriptionStore } from '@/store/useSubscriptionStore';
 import {
   FrankRuhlLibre_400Regular,
   FrankRuhlLibre_500Medium,
@@ -54,6 +56,27 @@ export default function RootLayout() {
   useEffect(() => {
     initNotifications();
   }, []);
+
+  // Configure RevenueCat once fonts load (auth-resolution hook).
+  // In stub mode (SDK not installed) this no-ops safely.
+  useEffect(() => {
+    if (!loaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await configurePurchases();
+        const info = await getCustomerInfo();
+        if (cancelled) return;
+        if (isSubscriptionActive(info)) {
+          const tier = inferTier(info);
+          if (tier) useSubscriptionStore.getState().syncFromPurchase(tier, info.latestExpirationDate);
+        }
+      } catch (e) {
+        console.warn('[Albert] purchases init failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [loaded]);
 
   if (!loaded) return null;
 

@@ -67,7 +67,24 @@ const MOCK_PRODUCTS: PurchaseProduct[] = [
     introPriceString: 'Free',
     introPeriod:   '7 days',
   },
+  {
+    identifier:  'albert_lifetime',
+    price:       199.99,
+    priceString: '$199.99',
+    currency:    'USD',
+    period:      'lifetime',
+  },
 ];
+
+/** Map Albert subscription tier → RevenueCat product identifier. */
+export const TIER_TO_PRODUCT: Record<'monthly' | 'annual' | 'lifetime', string> = {
+  monthly:  'albert_monthly',
+  annual:   'albert_annual',
+  lifetime: 'albert_lifetime',
+};
+
+/** The entitlement identifier configured in the RevenueCat dashboard. */
+export const PREMIUM_ENTITLEMENT = 'premium';
 
 const CACHE_KEY = 'albert-iap-customerinfo-v1';
 
@@ -202,8 +219,23 @@ export async function getCustomerInfo(): Promise<PurchaseCustomerInfo> {
 export function isSubscriptionActive(info: PurchaseCustomerInfo): boolean {
   return (
     info.activeSubscriptions.length > 0 ||
-    Object.values(info.entitlements).some(e => e.identifier === 'premium' && e.isActive)
+    Object.values(info.entitlements).some(e => e.identifier === PREMIUM_ENTITLEMENT && e.isActive)
   );
+}
+
+/**
+ * Infer the Albert subscription tier from a customer info object.
+ * Returns null if no active entitlement is found.
+ */
+export function inferTier(info: PurchaseCustomerInfo): 'monthly' | 'annual' | 'lifetime' | null {
+  const ids = info.activeSubscriptions;
+  if (ids.includes('albert_lifetime')) return 'lifetime';
+  if (ids.includes('albert_annual'))   return 'annual';
+  if (ids.includes('albert_monthly'))  return 'monthly';
+  // Fallback: use entitlement's product identifier when available
+  const ent = Object.values(info.entitlements).find(e => e.isActive);
+  if (ent?.identifier === PREMIUM_ENTITLEMENT) return 'monthly';
+  return null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

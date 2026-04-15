@@ -26,6 +26,6 @@ export const Config = {
   // Feature flags
   FEATURE_OFFLINE_DOWNLOAD: false,   // Not yet shipped
   FEATURE_CHEVRUSA:         false,   // Coming soon
-  FEATURE_AUDIO:            false,   // Coming soon
+  FEATURE_AUDIO:            true,    // Audio explainers via CDN manifest (v1.2+)
   FEATURE_CLOUD_SYNC:       false,   // Coming soon
 } as const;

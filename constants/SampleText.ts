@@ -7,6 +7,11 @@ export interface TextSection {
   type: 'heading' | 'hebrew' | 'english' | 'commentary' | 'divider' | 'verseHebrew' | 'verseEnglish';
   content: string;
   verseRef?: string;
+  /**
+   * Optional audio explainer — when set, reader shows a gold speaker icon
+   * that plays a short (60-180s) clip mapped via audioManifestService.
+   */
+  audioId?: string;
 }
 
 export const SAMPLE_CONTENT: Record<string, TextSection[]> = {

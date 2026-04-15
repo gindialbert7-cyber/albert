@@ -21,9 +21,12 @@ import { useReaderColors } from '@/hooks/useTheme';
 import { useAdaptiveLayout } from '@/hooks/useAdaptiveLayout';
 import { track, Events } from '@/utils/analytics';
 import { contentService } from '@/services/contentService';
+import { getAudioManifest, getClip, AudioManifest } from '@/services/audioManifestService';
+import { stopActiveAudio } from '@/hooks/useAudioPlayer';
 
 import ReaderToolbar from '@/components/reader/ReaderToolbar';
 import ReaderSettings from '@/components/reader/ReaderSettings';
+import AudioSection from '@/components/reader/AudioSection';
 import GoldDivider from '@/components/ui/GoldDivider';
 import BookCover from '@/components/library/BookCover';
 import ProgressBar from '@/components/ui/ProgressBar';
@@ -56,6 +59,7 @@ export default function BookReaderScreen() {
   const [content,        setContent]        = useState<TextSection[]>([]);
   const [contentLoading, setContentLoading] = useState(true);
   const [activeChapter,  setActiveChapter]  = useState(0);
+  const [audioManifest,  setAudioManifest]  = useState<AudioManifest | null>(null);
   const [picker,         setPicker]         = useState<HighlightPickerState>({ visible: false, sectionIdx: 0, text: '' });
   const [contentHeight,  setContentHeight]  = useState(1);
   const [scrollPos,      setScrollPos]      = useState(0);
@@ -131,6 +135,21 @@ export default function BookReaderScreen() {
       setActiveChapter(pos.chapterIdx);
     }
   }, [book?.id]);
+
+  // Load audio manifest for this book (null if none exists / feature off)
+  useEffect(() => {
+    if (!book) return;
+    let cancelled = false;
+    getAudioManifest(book.id).then(m => {
+      if (!cancelled) setAudioManifest(m);
+    });
+    return () => { cancelled = true; };
+  }, [book?.id]);
+
+  // Stop any playing audio when the reader unmounts
+  useEffect(() => {
+    return () => { stopActiveAudio(); };
+  }, []);
 
   if (!book) {
     return (
@@ -401,19 +420,30 @@ export default function BookReaderScreen() {
               hebSize={hebSize}
               lh={lhMult}
               gutter={layout.columnGutter}
+              audioManifest={audioManifest}
               getHighlightColor={getHighlightColor}
               onLongPressSection={handleLongPressSection}
               onShareSection={handleShare}
             />
           ) : (
-            (isPaywalled ? content.slice(0, 3) : content).map((section: TextSection, i: number) =>
-              renderSection(
-                section, i, colors, engSize, hebSize, lhMult,
-                getHighlightColor(i),
-                () => handleLongPressSection(i, section.content),
-                () => handleShare(section.content),
-              ),
-            )
+            (isPaywalled ? content.slice(0, 3) : content).map((section: TextSection, i: number) => (
+              <React.Fragment key={i}>
+                {renderSection(
+                  section, i, colors, engSize, hebSize, lhMult,
+                  getHighlightColor(i),
+                  () => handleLongPressSection(i, section.content),
+                  () => handleShare(section.content),
+                )}
+                {section.audioId && (
+                  <AudioSection
+                    clip={getClip(audioManifest, section.audioId)}
+                    goldColor={colors.gold}
+                    textColor={colors.text}
+                    mutedColor={colors.muted}
+                  />
+                )}
+              </React.Fragment>
+            ))
           )}
 
           {/* ── Paywall curtain ─────────────────────────────────────── */}
@@ -572,7 +602,7 @@ export default function BookReaderScreen() {
  * Other types (heading, commentary, divider) span both columns.
  */
 function DualColumnView({
-  sections, colors, engSize, hebSize, lh, gutter,
+  sections, colors, engSize, hebSize, lh, gutter, audioManifest,
   getHighlightColor, onLongPressSection, onShareSection,
 }: {
   sections: TextSection[];
@@ -581,6 +611,7 @@ function DualColumnView({
   hebSize: number;
   lh: number;
   gutter: number;
+  audioManifest: AudioManifest | null;
   getHighlightColor: (idx: number) => string | undefined;
   onLongPressSection: (idx: number, text: string) => void;
   onShareSection: (text: string) => void;
@@ -611,11 +642,23 @@ function DualColumnView({
       {rows.map((row, rowIdx) => {
         if (row.kind === 'span') {
           const s = sections[row.idx];
-          return renderSection(
-            s, row.idx, colors, engSize, hebSize, lh,
-            getHighlightColor(row.idx),
-            () => onLongPressSection(row.idx, s.content),
-            () => onShareSection(s.content),
+          return (
+            <React.Fragment key={`span-${rowIdx}`}>
+              {renderSection(
+                s, row.idx, colors, engSize, hebSize, lh,
+                getHighlightColor(row.idx),
+                () => onLongPressSection(row.idx, s.content),
+                () => onShareSection(s.content),
+              )}
+              {s.audioId && (
+                <AudioSection
+                  clip={getClip(audioManifest, s.audioId)}
+                  goldColor={colors.gold}
+                  textColor={colors.text}
+                  mutedColor={colors.muted}
+                />
+              )}
+            </React.Fragment>
           );
         }
 
@@ -623,52 +666,64 @@ function DualColumnView({
         const en  = sections[row.enIdx];
         const heHl = getHighlightColor(row.heIdx);
         const enHl = getHighlightColor(row.enIdx);
+        // Audio on either side of the pair surfaces below the row.
+        const pairAudioId = he.audioId ?? en.audioId;
 
         return (
-          <View key={`pair-${rowIdx}`} style={[dualStyles.row, { gap: gutter }]}>
-            {/* English (left) */}
-            <Pressable
-              style={dualStyles.col}
-              onLongPress={() => onLongPressSection(row.enIdx, en.content)}
-            >
-              <View style={[dualStyles.colInner, enHl ? { backgroundColor: enHl + '55' } : null]}>
-                {en.verseRef && (
-                  <Text style={[sectionStyles.verseRefEn, { color: colors.gold + 'AA' }]}>
-                    {en.verseRef}
+          <React.Fragment key={`pair-${rowIdx}`}>
+            <View style={[dualStyles.row, { gap: gutter }]}>
+              {/* English (left) */}
+              <Pressable
+                style={dualStyles.col}
+                onLongPress={() => onLongPressSection(row.enIdx, en.content)}
+              >
+                <View style={[dualStyles.colInner, enHl ? { backgroundColor: enHl + '55' } : null]}>
+                  {en.verseRef && (
+                    <Text style={[sectionStyles.verseRefEn, { color: colors.gold + 'AA' }]}>
+                      {en.verseRef}
+                    </Text>
+                  )}
+                  <Text style={[
+                    sectionStyles.englishText,
+                    { color: colors.text, fontSize: engSize, lineHeight: engSize * lh },
+                  ]}>
+                    {en.content}
                   </Text>
-                )}
-                <Text style={[
-                  sectionStyles.englishText,
-                  { color: colors.text, fontSize: engSize, lineHeight: engSize * lh },
-                ]}>
-                  {en.content}
-                </Text>
-              </View>
-            </Pressable>
+                </View>
+              </Pressable>
 
-            {/* Gold vertical rule */}
-            <View style={[dualStyles.divider, { backgroundColor: colors.gold + '4D' }]} />
+              {/* Gold vertical rule */}
+              <View style={[dualStyles.divider, { backgroundColor: colors.gold + '4D' }]} />
 
-            {/* Hebrew (right) */}
-            <Pressable
-              style={dualStyles.col}
-              onLongPress={() => onLongPressSection(row.heIdx, he.content)}
-            >
-              <View style={[dualStyles.colInner, heHl ? { backgroundColor: heHl + '55' } : null]}>
-                {he.verseRef && (
-                  <Text style={[sectionStyles.verseRef, { color: colors.gold + 'AA', textAlign: 'right' }]}>
-                    {he.verseRef}
+              {/* Hebrew (right) */}
+              <Pressable
+                style={dualStyles.col}
+                onLongPress={() => onLongPressSection(row.heIdx, he.content)}
+              >
+                <View style={[dualStyles.colInner, heHl ? { backgroundColor: heHl + '55' } : null]}>
+                  {he.verseRef && (
+                    <Text style={[sectionStyles.verseRef, { color: colors.gold + 'AA', textAlign: 'right' }]}>
+                      {he.verseRef}
+                    </Text>
+                  )}
+                  <Text style={[
+                    sectionStyles.hebrewText,
+                    { color: colors.text, fontSize: hebSize, lineHeight: hebSize * lh },
+                  ]}>
+                    {he.content}
                   </Text>
-                )}
-                <Text style={[
-                  sectionStyles.hebrewText,
-                  { color: colors.text, fontSize: hebSize, lineHeight: hebSize * lh },
-                ]}>
-                  {he.content}
-                </Text>
-              </View>
-            </Pressable>
-          </View>
+                </View>
+              </Pressable>
+            </View>
+            {pairAudioId && (
+              <AudioSection
+                clip={getClip(audioManifest, pairAudioId)}
+                goldColor={colors.gold}
+                textColor={colors.text}
+                mutedColor={colors.muted}
+              />
+            )}
+          </React.Fragment>
         );
       })}
     </View>

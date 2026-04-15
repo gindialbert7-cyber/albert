@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  Dimensions, Platform,
+  Dimensions, Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 import {
   useSubscriptionStore,
@@ -17,6 +18,13 @@ import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
 import GoldDivider from '@/components/ui/GoldDivider';
 import { track, Events } from '@/utils/analytics';
+import {
+  purchaseProduct,
+  restorePurchases,
+  isSubscriptionActive,
+  inferTier,
+  TIER_TO_PRODUCT,
+} from '@/services/purchaseService';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const isTablet = SCREEN_W >= 768;
@@ -124,29 +132,78 @@ const SOCIAL_PROOF_STATS = [
 ];
 
 export default function SubscribeScreen() {
-  const [selected, setSelected] = useState<Exclude<SubscriptionTier, 'free'>>('annual');
-  const { subscribe, startTrial } = useSubscriptionStore();
+  const [selected, setSelected]     = useState<Exclude<SubscriptionTier, 'free'>>('annual');
+  const [busy,     setBusy]         = useState<null | 'buy' | 'trial' | 'restore'>(null);
+  const { startTrial, syncFromPurchase } = useSubscriptionStore();
 
   useEffect(() => {
     track(Events.PAYWALL_VIEW);
   }, []);
 
   function handlePlanSelect(tier: Exclude<SubscriptionTier, 'free'>) {
+    Haptics.selectionAsync();
     setSelected(tier);
     track(Events.PLAN_SELECT, { tier });
   }
 
-  function handleSubscribe() {
+  async function handleSubscribe() {
+    if (busy) return;
+    Haptics.selectionAsync();
     track(Events.SUBSCRIBE_TAP, { tier: selected });
-    subscribe(selected);
-    track(Events.SUBSCRIBE_SUCCESS, { tier: selected });
-    router.replace('/(tabs)');
+    setBusy('buy');
+    try {
+      const productId = TIER_TO_PRODUCT[selected];
+      const result    = await purchaseProduct(productId);
+      if (result.success) {
+        const tier = inferTier(result.customerInfo) ?? selected;
+        syncFromPurchase(tier, result.customerInfo.latestExpirationDate);
+        track(Events.SUBSCRIBE_SUCCESS, { tier });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.replace('/(tabs)');
+      } else if (!result.cancelled) {
+        Alert.alert('Purchase failed', result.error || 'Please try again.');
+      }
+    } catch (e: any) {
+      Alert.alert('Purchase failed', e?.message ?? 'Please try again.');
+    } finally {
+      setBusy(null);
+    }
   }
 
   function handleTrial() {
+    if (busy) return;
+    Haptics.selectionAsync();
     track(Events.TRIAL_START, { tier: selected });
+    setBusy('trial');
+    // Trials are granted locally for stub; real builds gate via RevenueCat
+    // introductory offer which is consumed automatically on the first purchase.
     startTrial(7);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.replace('/(tabs)');
+  }
+
+  async function handleRestore() {
+    if (busy) return;
+    Haptics.selectionAsync();
+    setBusy('restore');
+    try {
+      const info = await restorePurchases();
+      if (isSubscriptionActive(info)) {
+        const tier = inferTier(info);
+        if (tier) {
+          syncFromPurchase(tier, info.latestExpirationDate);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert('Restored', 'Your subscription has been restored.');
+          router.replace('/(tabs)');
+          return;
+        }
+      }
+      Alert.alert('No purchase found', 'We couldn\u2019t find an active subscription on this account.');
+    } catch (e: any) {
+      Alert.alert('Restore failed', e?.message ?? 'Please try again.');
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -247,22 +304,32 @@ export default function SubscribeScreen() {
 
         {/* ── CTA buttons ───────────────────────────────────────────── */}
         <View style={styles.ctaBlock}>
-          <Pressable style={styles.trialBtn} onPress={handleTrial}>
+          <Pressable style={styles.trialBtn} onPress={handleTrial} disabled={busy !== null}>
             <LinearGradient
               colors={[Palette.goldBright, Palette.goldMid]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.trialBtnGrad}
             >
-              <Text style={styles.trialBtnText}>Start 7-Day Free Trial</Text>
+              {busy === 'trial'
+                ? <ActivityIndicator color={Palette.navyDeep} />
+                : <Text style={styles.trialBtnText}>Start 7-Day Free Trial</Text>}
             </LinearGradient>
           </Pressable>
 
-          <Pressable style={styles.subBtn} onPress={handleSubscribe}>
-            <Text style={styles.subBtnText}>
-              Subscribe Now — {SUBSCRIPTION_PRICES[selected].price}{' '}
-              {selected === 'lifetime' ? 'one time' : `/ ${SUBSCRIPTION_PRICES[selected].period}`}
-            </Text>
+          <Pressable style={styles.subBtn} onPress={handleSubscribe} disabled={busy !== null}>
+            {busy === 'buy'
+              ? <ActivityIndicator color={Palette.goldBright} />
+              : <Text style={styles.subBtnText}>
+                  Subscribe Now — {SUBSCRIPTION_PRICES[selected].price}{' '}
+                  {selected === 'lifetime' ? 'one time' : `/ ${SUBSCRIPTION_PRICES[selected].period}`}
+                </Text>}
+          </Pressable>
+
+          <Pressable onPress={handleRestore} disabled={busy !== null} style={styles.restoreBtn}>
+            {busy === 'restore'
+              ? <ActivityIndicator color={Palette.goldMid} />
+              : <Text style={styles.restoreText}>Restore purchases</Text>}
           </Pressable>
 
           <Text style={styles.legalText}>
@@ -576,6 +643,16 @@ const styles = StyleSheet.create({
     color:      '#4A4030',
     textAlign:  'center',
     lineHeight: 17,
+  },
+  restoreBtn: {
+    paddingVertical: 10,
+    alignItems:      'center',
+  },
+  restoreText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   13,
+    color:      Palette.goldMid,
+    textDecorationLine: 'underline',
   },
 
   // Features section
