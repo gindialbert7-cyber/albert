@@ -164,3 +164,94 @@ export const TextStyles = {
     letterSpacing: 0.3,
   },
 };
+
+/**
+ * Bereshit Press reader typography scale (April 2026 design brief).
+ *
+ * These are the exact sizes/line-heights for the parchment reader direction
+ * shown in Albert.html — tablet-first, phone-derived. Use these from reader
+ * components when rendering the new v2 SectionKind blocks.
+ *
+ * Rules to honour (from research notes in the brief):
+ *   - NEVER apply letterSpacing to Hebrew (detaches nikud)
+ *   - Hebrew body ≥ 16px on mobile, 28px on tablet
+ *   - Mishnah and commentary differentiated by WEIGHT, not font-swap
+ *   - Only Rashi-proper uses Noto Rashi Hebrew; all other mefarshim use
+ *     Frank Ruhl Libre at smaller optical size
+ */
+export const ReaderType = {
+  // Ceremonial kicker above a pasuk / mishnah reference, e.g. "Pirkei Avos · 1:1"
+  kicker: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   10,
+    lineHeight: 14,
+    letterSpacing: 2.8,     // UI sans — letter-spacing OK here
+    textTransform: 'uppercase' as const,
+  },
+
+  // Mishnah / verse body — the "commanding" block. Large, unhurried.
+  mishnahHe: {
+    fontFamily: Fonts.hebrewRegular,
+    fontSize:   28,
+    lineHeight: 46,
+    textAlign:  'right' as const,
+  },
+  mishnahHePhone: {
+    fontFamily: Fonts.hebrewRegular,
+    fontSize:   22,
+    lineHeight: 38,
+    textAlign:  'right' as const,
+  },
+
+  // Gemara body — slightly tighter than mishnah
+  gemaraHe: {
+    fontFamily: Fonts.hebrewRegular,
+    fontSize:   24,
+    lineHeight: 40,
+    textAlign:  'right' as const,
+  },
+
+  // Commentary body (Bartenura, Tosfos Yom Tov, Ramban, etc.) — quiet register
+  commentaryHe: {
+    fontFamily: Fonts.hebrewRegular,
+    fontSize:   17,
+    lineHeight: 29,
+    textAlign:  'right' as const,
+  },
+  commentaryHePhone: {
+    fontFamily: Fonts.hebrewRegular,
+    fontSize:   15,
+    lineHeight: 25,
+    textAlign:  'right' as const,
+  },
+
+  // Rashi label — small gold uppercase sidecar. Mono, letter-spaced.
+  mefareshLabel: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   11,
+    lineHeight: 15,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase' as const,
+  },
+
+  // Translation body — set against Hebrew, locked to same baseline grid
+  translationEn: {
+    fontFamily: Fonts.serifRegular,
+    fontSize:   18,
+    lineHeight: 29,
+  },
+
+  // Pasuk / verse number — small gold gematria numeral shown inline
+  verseNumber: {
+    fontFamily: Fonts.hebrewMedium,
+    fontSize:   14,
+    lineHeight: 18,
+  },
+
+  // Perek opener — ceremonial chapter number
+  perekOpener: {
+    fontFamily: Fonts.hebrewBold,
+    fontSize:   56,
+    lineHeight: 64,
+  },
+};
