@@ -134,6 +134,12 @@ export async function forgotPassword(email: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Called from the reset-password screen after the session is restored from the deep-link tokens. */
+export async function updatePassword(newPassword: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
 /**
  * Restore session from persisted Supabase storage on app launch.
  * Returns null if no valid session exists.

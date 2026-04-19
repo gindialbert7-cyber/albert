@@ -250,3 +250,131 @@ export function getWeeklyParasha(): { name: string; heb: string } {
   const weekOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
   return WEEKLY_PARASHA[weekOfYear % WEEKLY_PARASHA.length];
 }
+
+// ── Daf Yomi ─────────────────────────────────────────────────────────────────
+
+export interface DafYomiResult {
+  tractate:    string;
+  tractateHeb: string;
+  daf:         number;
+  dafDisplay:  string; // e.g. "47a"
+  sedarName:   string; // e.g. "Moed"
+  cycleDay:    number; // 1-2711
+}
+
+const DAF_YOMI_TRACTATES: { name: string; heb: string; seder: string; daf: number }[] = [
+  { name: 'Berachos',     heb: 'ברכות',      seder: 'Zeraim',    daf: 63  },
+  { name: 'Shabbos',      heb: 'שבת',        seder: 'Moed',      daf: 156 },
+  { name: 'Eruvin',       heb: 'עירובין',     seder: 'Moed',      daf: 104 },
+  { name: 'Pesachim',     heb: 'פסחים',      seder: 'Moed',      daf: 120 },
+  { name: 'Shekalim',     heb: 'שקלים',      seder: 'Moed',      daf: 21  },
+  { name: 'Yoma',         heb: 'יומא',       seder: 'Moed',      daf: 87  },
+  { name: 'Sukkah',       heb: 'סוכה',       seder: 'Moed',      daf: 55  },
+  { name: 'Beitzah',      heb: 'ביצה',       seder: 'Moed',      daf: 39  },
+  { name: 'Rosh Hashana', heb: 'ראש השנה',   seder: 'Moed',      daf: 34  },
+  { name: "Ta'anis",      heb: 'תענית',      seder: 'Moed',      daf: 30  },
+  { name: 'Megillah',     heb: 'מגילה',      seder: 'Moed',      daf: 31  },
+  { name: 'Moed Katan',   heb: 'מועד קטן',   seder: 'Moed',      daf: 28  },
+  { name: 'Chagigah',     heb: 'חגיגה',      seder: 'Moed',      daf: 26  },
+  { name: 'Yevamos',      heb: 'יבמות',      seder: 'Nashim',    daf: 121 },
+  { name: 'Kesubos',      heb: 'כתובות',     seder: 'Nashim',    daf: 111 },
+  { name: 'Nedarim',      heb: 'נדרים',      seder: 'Nashim',    daf: 90  },
+  { name: 'Nazir',        heb: 'נזיר',       seder: 'Nashim',    daf: 65  },
+  { name: 'Sotah',        heb: 'סוטה',       seder: 'Nashim',    daf: 48  },
+  { name: 'Gitin',        heb: 'גיטין',      seder: 'Nashim',    daf: 89  },
+  { name: 'Kidushin',     heb: 'קידושין',    seder: 'Nashim',    daf: 81  },
+  { name: 'Bava Kama',    heb: 'בבא קמא',    seder: 'Nezikin',   daf: 118 },
+  { name: 'Bava Metzia',  heb: 'בבא מציעא',  seder: 'Nezikin',   daf: 118 },
+  { name: 'Bava Basra',   heb: 'בבא בתרא',   seder: 'Nezikin',   daf: 175 },
+  { name: 'Sanhedrin',    heb: 'סנהדרין',    seder: 'Nezikin',   daf: 112 },
+  { name: 'Makkos',       heb: 'מכות',       seder: 'Nezikin',   daf: 23  },
+  { name: 'Shevuos',      heb: 'שבועות',     seder: 'Nezikin',   daf: 48  },
+  { name: 'Avoda Zara',   heb: 'עבודה זרה',  seder: 'Nezikin',   daf: 75  },
+  { name: 'Horayos',      heb: 'הוריות',     seder: 'Nezikin',   daf: 13  },
+  { name: 'Zevachim',     heb: 'זבחים',      seder: 'Kodashim',  daf: 119 },
+  { name: 'Menachos',     heb: 'מנחות',      seder: 'Kodashim',  daf: 109 },
+  { name: 'Chulin',       heb: 'חולין',      seder: 'Kodashim',  daf: 141 },
+  { name: 'Bechoros',     heb: 'בכורות',     seder: 'Kodashim',  daf: 60  },
+  { name: 'Erchin',       heb: 'ערכין',      seder: 'Kodashim',  daf: 33  },
+  { name: 'Temurah',      heb: 'תמורה',      seder: 'Kodashim',  daf: 33  },
+  { name: 'Kerisus',      heb: 'כריתות',     seder: 'Kodashim',  daf: 27  },
+  { name: 'Meilah',       heb: 'מעילה',      seder: 'Kodashim',  daf: 22  },
+  { name: 'Nidah',        heb: 'נדה',        seder: 'Taharos',   daf: 72  },
+];
+
+// Cycle 14 started January 5, 2020
+const DAF_YOMI_CYCLE_14_START = new Date('2020-01-05T00:00:00Z').getTime();
+const TOTAL_DAF = DAF_YOMI_TRACTATES.reduce((s, t) => s + t.daf, 0); // 2709
+
+export function getDafYomi(): DafYomiResult {
+  const now      = new Date();
+  // Use UTC midnight so it advances at midnight UTC
+  const today    = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const dayInCycle = Math.floor((today - DAF_YOMI_CYCLE_14_START) / (24 * 60 * 60 * 1000)) % TOTAL_DAF;
+  const cycleDay  = ((dayInCycle % TOTAL_DAF) + TOTAL_DAF) % TOTAL_DAF;
+
+  let remaining = cycleDay;
+  for (const tract of DAF_YOMI_TRACTATES) {
+    if (remaining < tract.daf) {
+      const dafNum = remaining + 2; // daf starts at 2
+      return {
+        tractate:    tract.name,
+        tractateHeb: tract.heb,
+        daf:         dafNum,
+        dafDisplay:  `${dafNum}`,
+        sedarName:   tract.seder,
+        cycleDay:    cycleDay + 1,
+      };
+    }
+    remaining -= tract.daf;
+  }
+  // Fallback (should not reach here)
+  return {
+    tractate:    DAF_YOMI_TRACTATES[0].name,
+    tractateHeb: DAF_YOMI_TRACTATES[0].heb,
+    daf:         2,
+    dafDisplay:  '2',
+    sedarName:   DAF_YOMI_TRACTATES[0].seder,
+    cycleDay:    1,
+  };
+}
+
+// ── Shabbat status ────────────────────────────────────────────────────────────
+
+export type ShabbatStatus =
+  | 'erev'      // Friday — Shabbos starts tonight
+  | 'shabbat'   // Saturday — Shabbat Shalom
+  | 'motzei'    // Saturday after ~8pm (rough estimate)
+  | 'weekday';  // Sun–Thu — days until next Shabbos
+
+export interface ShabbatInfo {
+  status:       ShabbatStatus;
+  daysUntil:    number; // 0 on Fri/Sat, otherwise Fri = 0, Sat = 0
+  displayText:  string;
+  hebrewText:   string;
+}
+
+export function getShabbatInfo(): ShabbatInfo {
+  const now     = new Date();
+  const day     = now.getDay(); // 0=Sun, 5=Fri, 6=Sat
+  const hour    = now.getHours();
+
+  if (day === 5) {
+    return { status: 'erev', daysUntil: 0, displayText: 'Erev Shabbos', hebrewText: 'ערב שבת' };
+  }
+  if (day === 6) {
+    if (hour >= 20) {
+      return { status: 'motzei', daysUntil: 0, displayText: 'Shavua Tov', hebrewText: 'שבוע טוב' };
+    }
+    return { status: 'shabbat', daysUntil: 0, displayText: 'Shabbat Shalom', hebrewText: 'שבת שלום' };
+  }
+  // Sun=0 → 6 days to Fri; Mon=1 → 5; Tue=2 → 4; Wed=3 → 3; Thu=4 → 2
+  const daysUntil = day === 0 ? 6 : 5 - (day - 1);
+  return {
+    status:      'weekday',
+    daysUntil,
+    displayText: `Shabbos in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`,
+    hebrewText:  'שבת קודש',
+  };
+}
+

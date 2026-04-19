@@ -16,6 +16,7 @@ import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
 import { useLibraryStore } from '@/store/useLibraryStore';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
+import { getShabbatInfo } from '@/constants/DailyContent';
 
 import FeaturedHero from '@/components/library/FeaturedHero';
 import BookShelf from '@/components/library/BookShelf';
@@ -29,8 +30,9 @@ export default function HomeScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const heroBook = FEATURED_BOOKS[0];
 
-  const { recentBooks, myBooks } = useLibraryStore();
-  const { isActive, isTrialing }  = useSubscriptionStore();
+  const { recentBooks, myBooks, streak } = useLibraryStore();
+  const { isActive, isTrialing }         = useSubscriptionStore();
+  const shabbat = getShabbatInfo();
   const hasSubscription = isActive || isTrialing;
   const bookMap = Object.fromEntries(ALL_BOOKS.map(b => [b.id, b]));
 
@@ -81,6 +83,37 @@ export default function HomeScreen() {
               The Jewish Reading Library
             </Text>
           </View>
+
+          {/* Streak + Shabbat row */}
+          {(streak > 1 || shabbat.status !== 'weekday') && (
+            <View style={styles.statusRow}>
+              {streak > 1 && (
+                <View style={styles.streakBadge}>
+                  <Text style={styles.streakIcon}>🔥</Text>
+                  <Text style={styles.streakText}>{streak} day streak</Text>
+                </View>
+              )}
+              {shabbat.status !== 'weekday' && (
+                <View style={[
+                  styles.shabbatBadge,
+                  shabbat.status === 'shabbat' && styles.shabbatBadgeActive,
+                ]}>
+                  <Text style={[
+                    styles.shabbatBadgeHeb,
+                    shabbat.status === 'shabbat' && { color: Palette.goldBright },
+                  ]}>
+                    {shabbat.hebrewText}
+                  </Text>
+                  <Text style={[
+                    styles.shabbatBadgeEn,
+                    shabbat.status === 'shabbat' && { color: Palette.goldMid },
+                  ]}>
+                    {shabbat.displayText}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Search pill — navigates to Explore */}
           <Pressable
@@ -364,5 +397,54 @@ const styles = StyleSheet.create({
     fontSize:   15,
     color:      Palette.navyDeep,
     letterSpacing: 0.3,
+  },
+
+  // Streak + Shabbat status row
+  statusRow: {
+    flexDirection:  'row',
+    gap:            Space[3],
+    marginTop:      Space[4],
+    marginBottom:   Space[2],
+    flexWrap:       'wrap',
+  },
+  streakBadge: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               4,
+    paddingHorizontal: Space[3],
+    paddingVertical:   Space[1],
+    borderRadius:      Radius.pill,
+    backgroundColor:   'rgba(232,197,71,0.12)',
+    borderWidth:       1,
+    borderColor:       Palette.goldMid + '30',
+  },
+  streakIcon: {
+    fontSize: 13,
+  },
+  streakText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   12,
+    color:      Palette.goldBright,
+  },
+  shabbatBadge: {
+    paddingHorizontal: Space[3],
+    paddingVertical:   Space[1],
+    borderRadius:      Radius.pill,
+    borderWidth:       1,
+    borderColor:       Palette.goldMid + '25',
+  },
+  shabbatBadgeActive: {
+    backgroundColor: Palette.goldMid + '15',
+    borderColor:     Palette.goldBright + '50',
+  },
+  shabbatBadgeHeb: {
+    fontFamily: Fonts.hebrewBold,
+    fontSize:   14,
+    color:      Palette.goldMid,
+  },
+  shabbatBadgeEn: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   10,
+    color:      '#5A5040',
   },
 });

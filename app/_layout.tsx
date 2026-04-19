@@ -133,7 +133,8 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding"        options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen name="auth/sign-in"      options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
           <Stack.Screen name="auth/sign-up"      options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
-          <Stack.Screen name="auth/forgot-password" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
+          <Stack.Screen name="auth/forgot-password"   options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
+          <Stack.Screen name="auth/reset-password"   options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen name="collection/[id]"   options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen
             name="subscribe"
