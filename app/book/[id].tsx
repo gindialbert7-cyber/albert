@@ -11,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 
 import { ALL_BOOKS } from '@/constants/Books';
 import { TextSection } from '@/constants/SampleText';
-import { Fonts } from '@/constants/Typography';
+import { Fonts, ReaderType } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';
 
@@ -769,6 +769,11 @@ function renderSection(
       return (
         <Pressable key={i} onLongPress={onLongPress}>
           <View style={[sectionStyles.headingBlock, hl]}>
+            {s.heContent && (
+              <Text style={[sectionStyles.headingHebrew, { color: colors.heading }]}>
+                {s.heContent}
+              </Text>
+            )}
             {s.verseRef && (
               <Text style={[sectionStyles.headingHebrew, { color: colors.gold }]}>
                 {s.verseRef}
@@ -835,6 +840,128 @@ function renderSection(
 
     case 'divider':
       return <GoldDivider key={i} marginVertical={20} opacity={0.2} />;
+
+    // ── v2 section kinds ────────────────────────────────────────────
+
+    case 'mishnah':
+      return (
+        <Pressable key={i} onLongPress={onLongPress}>
+          <View style={[v2Styles.mishnahBlock, { borderLeftColor: colors.gold + '60' }, hl]}>
+            {s.verseRef && (
+              <Text style={[v2Styles.kicker, { color: colors.gold }]}>
+                {s.verseRef.toUpperCase()}
+              </Text>
+            )}
+            <Text style={[v2Styles.mishnahHe, { color: colors.text, fontSize: hebSize, lineHeight: hebSize * lh }]}>
+              {s.content}
+            </Text>
+            {s.translation && (
+              <Text style={[v2Styles.translationEn, { color: colors.muted }]}>
+                {s.translation}
+              </Text>
+            )}
+          </View>
+        </Pressable>
+      );
+
+    case 'gemara':
+      return (
+        <Pressable key={i} onLongPress={onLongPress}>
+          <View style={[v2Styles.gemaraBlock, hl]}>
+            <Text style={[v2Styles.gemaraHe, { color: colors.text, fontSize: Math.max(16, hebSize - 2), lineHeight: Math.max(28, hebSize - 2) * lh }]}>
+              {s.content}
+            </Text>
+          </View>
+        </Pressable>
+      );
+
+    case 'rashi':
+      return (
+        <Pressable key={i} onLongPress={onLongPress}>
+          <View style={[v2Styles.rashiBlock, { borderTopColor: colors.gold + '50' }, hl]}>
+            <Text style={[v2Styles.mefareshLabel, { color: colors.gold }]}>רש״י</Text>
+            <Text style={[v2Styles.commentaryHe, { color: colors.muted }]}>
+              {s.content}
+            </Text>
+          </View>
+        </Pressable>
+      );
+
+    case 'tosfos':
+      return (
+        <Pressable key={i} onLongPress={onLongPress}>
+          <View style={[v2Styles.rashiBlock, { borderTopColor: colors.gold + '50' }, hl]}>
+            <Text style={[v2Styles.mefareshLabel, { color: colors.gold }]}>תוספות</Text>
+            <Text style={[v2Styles.commentaryHe, { color: colors.muted }]}>
+              {s.content}
+            </Text>
+          </View>
+        </Pressable>
+      );
+
+    case 'mefaresh':
+      return (
+        <Pressable key={i} onLongPress={onLongPress}>
+          <View style={[v2Styles.rashiBlock, { borderTopColor: colors.gold + '50' }, hl]}>
+            {s.speaker && (
+              <Text style={[v2Styles.mefareshLabel, { color: colors.gold }]}>
+                {s.speaker.toUpperCase()}
+              </Text>
+            )}
+            <Text style={[v2Styles.commentaryHe, { color: colors.muted }]}>
+              {s.content}
+            </Text>
+          </View>
+        </Pressable>
+      );
+
+    case 'pasuk':
+      return (
+        <Pressable key={i} onLongPress={onLongPress}>
+          <View style={[v2Styles.pasukBlock, hl]}>
+            {(s.verse ?? s.verseRef) && (
+              <Text style={[v2Styles.verseNumber, { color: colors.gold }]}>
+                {s.verse?.gematria ?? s.verseRef}
+              </Text>
+            )}
+            <Text style={[v2Styles.pasukHe, { color: colors.text, fontSize: hebSize, lineHeight: hebSize * lh }]}>
+              {s.content}
+            </Text>
+          </View>
+        </Pressable>
+      );
+
+    case 'parsha-marker':
+      return (
+        <View key={i} style={v2Styles.parshaMarker}>
+          <Text style={[v2Styles.parshaGlyph, { color: colors.gold }]}>
+            {s.content ?? 'פ'}
+          </Text>
+        </View>
+      );
+
+    case 'aliyah':
+      return (
+        <View key={i} style={[v2Styles.aliyahBar, { borderColor: colors.gold + '40' }]}>
+          <View style={[v2Styles.aliyahLine, { backgroundColor: colors.gold + '40' }]} />
+          <Text style={[v2Styles.aliyahLabel, { color: colors.gold }]}>
+            {s.content ?? 'עלייה'}
+          </Text>
+          <View style={[v2Styles.aliyahLine, { backgroundColor: colors.gold + '40' }]} />
+        </View>
+      );
+
+    case 'perek-open':
+      return (
+        <View key={i} style={v2Styles.perekOpen}>
+          <Text style={[v2Styles.perekGlyph, { color: colors.heading }]}>
+            {s.content ?? 'א'}
+          </Text>
+          {s.heContent && (
+            <Text style={[v2Styles.perekTitle, { color: colors.muted }]}>{s.heContent}</Text>
+          )}
+        </View>
+      );
 
     default:
       return null;
@@ -1198,6 +1325,117 @@ const sectionStyles = StyleSheet.create({
   },
   commentaryText: {
     fontFamily: Fonts.serifItalic,
+  },
+});
+
+// ── v2 section styles ─────────────────────────────────────────────────────
+
+const v2Styles = StyleSheet.create({
+  // Mishnah — elevated commanding block
+  mishnahBlock: {
+    marginBottom:   Space[5],
+    paddingLeft:    Space[3],
+    borderLeftWidth:3,
+    paddingVertical:Space[3],
+    borderRadius:   4,
+    gap:            6,
+  },
+  mishnahHe: {
+    fontFamily: Fonts.hebrewRegular,
+    textAlign:  'right',
+  },
+
+  // Gemara — slightly quieter than mishnah
+  gemaraBlock: {
+    marginBottom:  Space[4],
+    paddingLeft:   Space[2],
+    borderRadius:  4,
+    paddingVertical:4,
+  },
+  gemaraHe: {
+    fontFamily: Fonts.hebrewRegular,
+    textAlign:  'right',
+  },
+
+  // Rashi / Tosfos / Mefaresh — commentary register
+  rashiBlock: {
+    marginTop:    Space[3],
+    marginBottom: Space[4],
+    paddingTop:   Space[3],
+    borderTopWidth: 1,
+    gap:          6,
+  },
+  mefareshLabel: {
+    ...ReaderType.mefareshLabel,
+  },
+  commentaryHe: {
+    ...ReaderType.commentaryHe,
+  },
+
+  // Pasuk
+  pasukBlock: {
+    marginBottom:   Space[4],
+    alignItems:     'flex-end',
+    gap:            4,
+    borderRadius:   4,
+    paddingVertical:4,
+  },
+  pasukHe: {
+    fontFamily: Fonts.hebrewRegular,
+    textAlign:  'right',
+  },
+  verseNumber: {
+    ...ReaderType.verseNumber,
+  },
+
+  // Parsha marker פ / ס
+  parshaMarker: {
+    alignItems:     'center',
+    marginVertical: Space[2],
+  },
+  parshaGlyph: {
+    fontFamily: Fonts.hebrewBold,
+    fontSize:   22,
+    lineHeight: 28,
+  },
+
+  // Aliyah bar
+  aliyahBar: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    marginVertical: Space[4],
+    gap:            Space[3],
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    paddingVertical: 6,
+  },
+  aliyahLine: {
+    flex:   1,
+    height: 1,
+  },
+  aliyahLabel: {
+    ...ReaderType.kicker,
+  },
+
+  // Perek opener
+  perekOpen: {
+    alignItems:     'center',
+    marginVertical: Space[8],
+    gap:            Space[2],
+  },
+  perekGlyph: {
+    ...ReaderType.perekOpener,
+  },
+  perekTitle: {
+    fontFamily: Fonts.hebrewMedium,
+    fontSize:   16,
+    lineHeight: 24,
+    textAlign:  'center',
+  },
+
+  // Translation (used under mishnah)
+  translationEn: {
+    ...ReaderType.translationEn,
   },
 });
 

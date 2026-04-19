@@ -1,18 +1,13 @@
 /**
  * Sample reading content for each book.
  * In production, content is streamed from the CDN / CMS.
+ *
+ * TextSection is now a direct alias for BookSection from BookSchema,
+ * which includes both v1 and v2 section kinds.
  */
+import { BookSection } from '@/constants/BookSchema';
 
-export interface TextSection {
-  type: 'heading' | 'hebrew' | 'english' | 'commentary' | 'divider' | 'verseHebrew' | 'verseEnglish';
-  content: string;
-  verseRef?: string;
-  /**
-   * Optional audio explainer — when set, reader shows a gold speaker icon
-   * that plays a short (60-180s) clip mapped via audioManifestService.
-   */
-  audioId?: string;
-}
+export type TextSection = BookSection;
 
 export const SAMPLE_CONTENT: Record<string, TextSection[]> = {
   'chumash-rashi': [

@@ -1,5 +1,5 @@
 import { useColorScheme } from 'react-native';
-import { Colors, ThemeColors } from '@/constants/Colors';
+import { Colors, ThemeColors, ReadingThemes } from '@/constants/Colors';
 import { useLibraryStore } from '@/store/useLibraryStore';
 
 /**
@@ -12,47 +12,21 @@ export function useTheme(): ThemeColors {
 }
 
 export function useReaderColors() {
-  const theme = useLibraryStore(s => s.theme);
-  const isDark = useColorScheme() === 'dark';
+  const storeTheme = useLibraryStore(s => s.theme);
 
-  const READER_THEMES = {
-    parchment: {
-      bg:      '#F5EFE0',
-      bgWarm:  '#EFE5CC',
-      text:    '#1A1207',
-      heading: '#1A2744',
-      gold:    '#C9A84C',
-      divider: '#DDD4C0',
-      muted:   '#6B5B3E',
-    },
-    sepia: {
-      bg:      '#EAE0CC',
-      bgWarm:  '#DDD4BA',
-      text:    '#2A1E10',
-      heading: '#1A2744',
-      gold:    '#C9A84C',
-      divider: '#C8BCA0',
-      muted:   '#7A6B50',
-    },
-    white: {
-      bg:      '#FFFFFF',
-      bgWarm:  '#F9F9F9',
-      text:    '#111111',
-      heading: '#1A2744',
-      gold:    '#C9A84C',
-      divider: '#E0E0E0',
-      muted:   '#666666',
-    },
-    night: {
-      bg:      '#0F1825',
-      bgWarm:  '#111C2A',
-      text:    '#DDD5C5',
-      heading: '#E8C547',
-      gold:    '#E8C547',
-      divider: '#1E2A40',
-      muted:   '#8B8070',
-    },
+  // 'white' is the legacy store key — map it to 'paper'
+  const themeKey = storeTheme === 'white' ? 'paper' : storeTheme as 'parchment' | 'sepia' | 'paper' | 'night';
+  const t = ReadingThemes[themeKey] ?? ReadingThemes.parchment;
+
+  return {
+    bg:      t.bg,
+    bgWarm:  t.surface,
+    text:    t.ink,
+    heading: t.navy,
+    gold:    t.gold,
+    divider: t.rule,
+    muted:   t.mute,
+    surface: t.surface,
+    highlight: t.highlight,
   };
-
-  return READER_THEMES[theme] ?? READER_THEMES.parchment;
 }
