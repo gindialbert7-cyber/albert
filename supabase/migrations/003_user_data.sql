@@ -5,7 +5,7 @@
 
 -- ── Reading positions ──────────────────────────────────────────────────────────
 create table if not exists public.reading_positions (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   user_id         uuid not null references auth.users(id) on delete cascade,
   book_id         text not null,
   chapter_id      text not null,

@@ -4,7 +4,7 @@
 -- ============================================================
 
 create table if not exists public.promo_codes (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   code            text not null unique,       -- e.g. 'ALBERT2026' (stored uppercase)
   tier            text not null default 'monthly'
     check (tier in ('monthly','annual','lifetime')),
@@ -19,7 +19,7 @@ create table if not exists public.promo_codes (
 
 -- Track who used which code (prevents double-use per user)
 create table if not exists public.promo_redemptions (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   promo_id        uuid not null references public.promo_codes(id),
   user_id         uuid not null references auth.users(id) on delete cascade,
   redeemed_at     timestamptz not null default now(),

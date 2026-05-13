@@ -75,7 +75,7 @@ create table if not exists public.books (
 
 -- ── Chapters ──────────────────────────────────────────────────────────────────
 create table if not exists public.chapters (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   book_id         text not null references public.books(id) on delete cascade,
   chapter_index   int not null,                -- 0-based position in book
   chapter_id      text not null,               -- matches Albert's Chapter.id
