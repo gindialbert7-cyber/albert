@@ -27,7 +27,6 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-port = 54325
 site_url = "albert://auth"
 additional_redirect_urls = ["https://albert-app.com", "albert://auth"]
 jwt_expiry = 3600
@@ -45,6 +44,5 @@ enable_confirmations = false   # flip to true before production
 [auth.external.google]
 enabled = false   # set to true + add client_id/secret for Google OAuth
 
-[functions]
-enabled = true
-port = 54326
+# Edge functions are defined under [functions.fn-name]
+# e.g. [functions.my-function]

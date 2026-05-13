@@ -114,6 +114,14 @@ export default function DailyLearningCard() {
             <Text style={styles.readBtnText}>Open {daf.tractate} →</Text>
           </Pressable>
         )}
+
+        {/* Parasha link — always visible */}
+        <Pressable
+          style={[styles.readBtn, styles.parashaBtn]}
+          onPress={() => router.push('/parasha')}
+        >
+          <Text style={styles.readBtnText}>Read This Week's Parasha →</Text>
+        </Pressable>
       </LinearGradient>
     </View>
   );
@@ -388,6 +396,9 @@ const styles = StyleSheet.create({
     borderRadius:      Radius.pill,
     borderWidth:       1,
     borderColor:       Palette.goldMid + '40',
+  },
+  parashaBtn: {
+    marginTop: 8,
   },
   readBtnText: {
     fontFamily: Fonts.sansMedium,
