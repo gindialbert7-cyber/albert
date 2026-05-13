@@ -2,272 +2,604 @@
 /**
  * scripts/build-book.ts
  *
- * Converts source material into a validated Albert .book.json file.
- * Supports three input modes:
- *
- *   --sefaria <ref>      Pull from the Sefaria public API (e.g. "Pirkei Avot")
- *   --epub    <file>     Parse a local .epub file
- *   --markdown <file>    Parse a local .md file (chapter breaks = ## headings)
- *
- * Output: {book-id}.book.json  (ready for upload-book.ts)
+ * Convert a content source (Sefaria ref list, EPUB, or Markdown) into a
+ * validated Albert BookDocument JSON file ready for upload-book.ts.
  *
  * Usage:
- *   npx ts-node scripts/build-book.ts --sefaria "Pirkei Avot" --id pirkei-avos --out ./books/
- *   npx ts-node scripts/build-book.ts --epub ./manuscript.epub --id my-book --out ./books/
- *   npx ts-node scripts/build-book.ts --markdown ./manuscript.md --id my-book --out ./books/
- *
- * Required flags:
- *   --id    <book-id>     kebab-case ID (must be unique in the catalog)
- *   --out   <dir>         output directory (created if absent)
+ *   npm run build-book -- --mode sefaria  --input examples/pirkei-avos.sefaria.yaml
+ *   npm run build-book -- --mode epub     --input /path/to/book.epub
+ *   npm run build-book -- --mode markdown --input /path/to/book.md
  *
  * Optional:
- *   --title <string>      book title (overrides auto-detected)
- *   --author <string>     author name (overrides auto-detected)
- *   --dry-run             validate + preview; don't write file
+ *   --out-dir <path>   default: ./books-out
+ *
+ * Output: ./books-out/<bookId>.book.json
  */
 
 import fs   from 'fs';
 import path from 'path';
+import yaml from 'js-yaml';
+import matter from 'gray-matter';
+import { parse as parseHtml, HTMLElement } from 'node-html-parser';
+import { execSync } from 'child_process';
+import os from 'os';
+import crypto from 'crypto';
 
-// ─── CLI args ─────────────────────────────────────────────────────────────────
+import {
+  BookDocument,
+  BookChapter,
+  BookSection,
+  SectionType,
+  validateBookDocument,
+} from '../constants/BookSchema';
 
-const args = process.argv.slice(2);
-const flag  = (f: string) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : undefined; };
-const has   = (f: string) => args.includes(f);
+// ─── CLI args ──────────────────────────────────────────────────────────────────
 
-const sefariaRef = flag('--sefaria');
-const epubPath   = flag('--epub');
-const mdPath     = flag('--markdown');
-const bookId     = flag('--id');
-const outDir     = flag('--out') ?? './books';
-const titleArg   = flag('--title');
-const authorArg  = flag('--author');
-const dryRun     = has('--dry-run');
+interface Args {
+  mode:    'sefaria' | 'epub' | 'markdown';
+  input:   string;
+  outDir:  string;
+}
 
-if (!bookId) { console.error('Error: --id is required'); process.exit(1); }
-if (!sefariaRef && !epubPath && !mdPath) {
-  console.error('Error: provide one of --sefaria, --epub, or --markdown');
+function parseArgs(argv: string[]): Args {
+  const out: Partial<Args> = { outDir: './books-out' };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!;
+    if (a === '--mode')    out.mode   = argv[++i] as Args['mode'];
+    else if (a === '--input')   out.input  = argv[++i]!;
+    else if (a === '--out-dir') out.outDir = argv[++i]!;
+  }
+
+  if (!out.mode || !['sefaria', 'epub', 'markdown'].includes(out.mode)) {
+    fail('--mode must be one of: sefaria, epub, markdown');
+  }
+  if (!out.input) fail('--input is required');
+
+  return out as Args;
+}
+
+function fail(msg: string): never {
+  console.error(`✗ ${msg}`);
   process.exit(1);
 }
 
-// ─── Types (minimal subset matching BookDocument in BookSchema.ts) ────────────
+// ─── Common helpers ────────────────────────────────────────────────────────────
 
-interface BookSection {
-  type: string;
-  content: string;
-  heContent?: string;
-  speaker?: string;
-  level?: number;
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[֐-׿]/g, '')   // strip Hebrew
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'chapter';
 }
 
-interface BookChapter {
-  id: string;
-  title: string;
+function isHebrewMajority(text: string): boolean {
+  const hebrew = (text.match(/[֐-׿]/g) ?? []).length;
+  const letters = (text.match(/[\p{L}]/gu) ?? []).length;
+  return letters > 0 && hebrew / letters > 0.5;
+}
+
+function writeOutput(doc: BookDocument, outDir: string): string {
+  fs.mkdirSync(outDir, { recursive: true });
+  const file = path.join(outDir, `${doc.id}.book.json`);
+  fs.writeFileSync(file, JSON.stringify(doc, null, 2), 'utf-8');
+  return file;
+}
+
+// ─── Mode: sefaria ─────────────────────────────────────────────────────────────
+//
+// Input YAML shape:
+//   id, title, hebrewTitle?, subtitle?, description?, category, layoutMode,
+//   language, ageGroup, requiresSub, authors[], tags[],
+//   chapters: [ { id, title, hebrewTitle?, sefariaRef, pageCount? } ]
+//
+// Each chapter gets sections: [] — the reader fetches Sefaria at runtime.
+
+interface SefariaConfig {
+  id:           string;
+  title:        string;
   hebrewTitle?: string;
-  order: number;
-  sections: BookSection[];
+  subtitle?:    string;
+  description?: string;
+  category:     string;
+  layoutMode:   BookDocument['layoutMode'];
+  language:     BookDocument['language'];
+  ageGroup:     BookDocument['ageGroup'];
+  requiresSub:  boolean;
+  authors?:     Array<{ name: string; hebrew?: string; years?: string }>;
+  tags?:        string[];
+  coverGradient?: [string, string];
+  coverAccent?:   string;
+  chapters: Array<{
+    id?:          string;
+    title:        string;
+    hebrewTitle?: string;
+    sefariaRef:   string;
+    pageCount?:   number;
+  }>;
 }
 
-interface BookDocument {
-  id: string;
-  schemaVersion: number;
-  title: string;
+function buildFromSefaria(inputPath: string): BookDocument {
+  const raw = fs.readFileSync(inputPath, 'utf-8');
+  const cfg = yaml.load(raw) as SefariaConfig;
+
+  if (!cfg || typeof cfg !== 'object') fail(`Invalid YAML at ${inputPath}`);
+  if (!cfg.chapters?.length) fail('sefaria config must have at least one chapter');
+
+  const chapters: BookChapter[] = cfg.chapters.map((ch, i) => ({
+    id:           ch.id ?? slugify(ch.title) ?? `ch-${i + 1}`,
+    title:        ch.title,
+    hebrewTitle:  ch.hebrewTitle,
+    sefariaRef:   ch.sefariaRef,
+    pageCount:    ch.pageCount ?? 8,
+    sections:     [],
+  }));
+
+  return {
+    id:             cfg.id,
+    title:          cfg.title,
+    hebrewTitle:    cfg.hebrewTitle,
+    subtitle:       cfg.subtitle,
+    description:    cfg.description,
+    category:       cfg.category,
+    layoutMode:     cfg.layoutMode,
+    language:       cfg.language,
+    ageGroup:       cfg.ageGroup,
+    requiresSub:    cfg.requiresSub,
+    authors:        (cfg.authors ?? []).map(a => ({
+      name:       a.name,
+      hebrewName: a.hebrew,
+      period:     a.years,
+    })),
+    coverGradient:  cfg.coverGradient,
+    coverAccent:    cfg.coverAccent,
+    tags:           cfg.tags ?? [],
+    chapters,
+  };
+}
+
+// ─── Mode: epub ────────────────────────────────────────────────────────────────
+//
+// Input: a .epub file or an already-unzipped directory. A sibling file
+// `book.yaml` provides top-level metadata (id/title/category/etc.) — chapters
+// are derived from the OPF spine.
+
+interface EpubMeta {
+  id:           string;
+  title:        string;
   hebrewTitle?: string;
-  authors: Array<{ name: string; hebrew?: string; years?: string }>;
-  category: string;
-  language: 'hebrew' | 'english' | 'bilingual';
-  description: string;
-  tags: string[];
-  requiresSub: boolean;
-  chapters: BookChapter[];
+  subtitle?:    string;
+  description?: string;
+  category:     string;
+  layoutMode:   BookDocument['layoutMode'];
+  language:     BookDocument['language'];
+  ageGroup:     BookDocument['ageGroup'];
+  requiresSub:  boolean;
+  authors?:     Array<{ name: string; hebrew?: string; years?: string }>;
+  tags?:        string[];
+  coverGradient?: [string, string];
+  coverAccent?:   string;
 }
 
-// ─── Sefaria mode ─────────────────────────────────────────────────────────────
+function buildFromEpub(inputPath: string): BookDocument {
+  const stat = fs.statSync(inputPath);
+  let rootDir: string;
+  let metaPath: string;
 
-async function buildFromSefaria(ref: string): Promise<BookDocument> {
-  console.log(`Fetching from Sefaria: ${ref}`);
-
-  // Fetch the index to get structure
-  const indexUrl = `https://www.sefaria.org/api/v2/index/${encodeURIComponent(ref)}`;
-  const indexRes = await fetch(indexUrl);
-  if (!indexRes.ok) throw new Error(`Sefaria index fetch failed: ${indexRes.status}`);
-  const index = await indexRes.json() as any;
-
-  const title     = (titleArg  ?? index.title)       || ref;
-  const heTitle   = index.heTitle;
-  const author    = authorArg ?? (index.authors?.[0] ?? '');
-
-  // Fetch all sections
-  const textUrl = `https://www.sefaria.org/api/v3/texts/${encodeURIComponent(ref)}?version=english&version=he`;
-  const textRes = await fetch(textUrl);
-  if (!textRes.ok) throw new Error(`Sefaria text fetch failed: ${textRes.status}`);
-  const textData = await textRes.json() as any;
-
-  const heTexts = textData.versions?.find((v: any) => v.language === 'he')?.text ?? [];
-  const enTexts = textData.versions?.find((v: any) => v.language === 'en')?.text ?? [];
-
-  const chapters: BookChapter[] = [];
-
-  const addChapter = (chIdx: number, heSections: string[], enSections: string[]) => {
-    const sections: BookSection[] = [];
-    const maxLen = Math.max(heSections.length, enSections.length);
-    for (let i = 0; i < maxLen; i++) {
-      const heText = heSections[i] ?? '';
-      const enText = enSections[i] ?? '';
-      if (heText) sections.push({ type: 'hebrew',  content: heText });
-      if (enText) sections.push({ type: 'english', content: enText });
+  if (stat.isDirectory()) {
+    rootDir  = inputPath;
+    metaPath = path.join(path.dirname(inputPath), 'book.yaml');
+    if (!fs.existsSync(metaPath)) {
+      metaPath = path.join(rootDir, 'book.yaml');
     }
+  } else if (inputPath.toLowerCase().endsWith('.epub')) {
+    // Extract to a temp dir
+    const tmp = path.join(os.tmpdir(), `albert-build-${crypto.randomBytes(4).toString('hex')}`);
+    fs.mkdirSync(tmp, { recursive: true });
+    extractEpub(inputPath, tmp);
+    rootDir  = tmp;
+    metaPath = path.join(path.dirname(inputPath), 'book.yaml');
+  } else {
+    fail(`epub mode: input must be a .epub file or a directory, got: ${inputPath}`);
+  }
+
+  if (!fs.existsSync(metaPath)) {
+    fail(`epub mode: missing sibling book.yaml at ${metaPath}`);
+  }
+
+  const meta = yaml.load(fs.readFileSync(metaPath, 'utf-8')) as EpubMeta;
+  if (!meta?.id || !meta?.title) fail('book.yaml must have id and title');
+
+  // 1. Read container.xml to find the OPF
+  const containerPath = path.join(rootDir, 'META-INF', 'container.xml');
+  if (!fs.existsSync(containerPath)) fail(`Not a valid EPUB — missing META-INF/container.xml`);
+  const containerXml = parseHtml(fs.readFileSync(containerPath, 'utf-8'));
+  const opfHref = containerXml.querySelector('rootfile')?.getAttribute('full-path');
+  if (!opfHref) fail(`container.xml is missing rootfile/full-path`);
+
+  // 2. Parse OPF: manifest items + spine itemrefs
+  const opfPath = path.join(rootDir, opfHref);
+  const opfDir  = path.dirname(opfPath);
+  const opf     = parseHtml(fs.readFileSync(opfPath, 'utf-8'));
+
+  const manifest = new Map<string, string>();
+  opf.querySelectorAll('manifest item').forEach(item => {
+    const id   = item.getAttribute('id');
+    const href = item.getAttribute('href');
+    if (id && href) manifest.set(id, href);
+  });
+
+  const spineIds: string[] = [];
+  opf.querySelectorAll('spine itemref').forEach(ref => {
+    const idref = ref.getAttribute('idref');
+    if (idref) spineIds.push(idref);
+  });
+
+  if (spineIds.length === 0) fail(`OPF spine is empty — nothing to extract`);
+
+  // 3. For each spine entry, parse the XHTML body into sections
+  const chapters: BookChapter[] = [];
+  spineIds.forEach((spineId, i) => {
+    const href = manifest.get(spineId);
+    if (!href) return;
+    const xhtmlPath = path.join(opfDir, href);
+    if (!fs.existsSync(xhtmlPath)) return;
+
+    const html  = fs.readFileSync(xhtmlPath, 'utf-8');
+    const root  = parseHtml(html);
+    const body  = root.querySelector('body') ?? root;
+
+    // Pick a chapter title from the first heading.
+    const firstHeading =
+      body.querySelector('h1') ??
+      body.querySelector('h2') ??
+      body.querySelector('h3');
+    const titleText = firstHeading?.text?.trim() || `Chapter ${i + 1}`;
+    const chId      = slugify(titleText) || `ch-${i + 1}`;
+
+    const sections: BookSection[] = [];
+    walkEpub(body, sections);
+
+    if (sections.length === 0) return; // skip empty (e.g. cover-only files)
+
     chapters.push({
-      id:    `ch-${chIdx + 1}`,
-      title: `Chapter ${chIdx + 1}`,
-      order: chIdx,
+      id:           chId,
+      title:        titleText,
+      pageCount:    Math.max(1, Math.round(sections.length / 8)),
       sections,
     });
-  };
+  });
 
-  // Handle flat (single chapter) vs nested (multi-chapter) structures
-  if (Array.isArray(heTexts[0])) {
-    heTexts.forEach((heCh: string[], i: number) => addChapter(i, heCh, enTexts[i] ?? []));
-  } else {
-    addChapter(0, heTexts as string[], enTexts as string[]);
-  }
+  if (chapters.length === 0) fail(`No chapters extracted from EPUB`);
 
   return {
-    id: bookId!,
-    schemaVersion: 2,
-    title,
-    hebrewTitle: heTitle,
-    authors: author ? [{ name: author }] : [],
-    category: 'mussar',
-    language: 'bilingual',
-    description: index.enDesc ?? index.heDesc ?? '',
-    tags: [title],
-    requiresSub: false,
+    id:             meta.id,
+    title:          meta.title,
+    hebrewTitle:    meta.hebrewTitle,
+    subtitle:       meta.subtitle,
+    description:    meta.description,
+    category:       meta.category,
+    layoutMode:     meta.layoutMode,
+    language:       meta.language,
+    ageGroup:       meta.ageGroup,
+    requiresSub:    meta.requiresSub,
+    authors:        (meta.authors ?? []).map(a => ({
+      name:       a.name,
+      hebrewName: a.hebrew,
+      period:     a.years,
+    })),
+    coverGradient:  meta.coverGradient,
+    coverAccent:    meta.coverAccent,
+    tags:           meta.tags ?? [],
     chapters,
   };
 }
 
-// ─── Markdown mode ────────────────────────────────────────────────────────────
+function walkEpub(node: HTMLElement, out: BookSection[]) {
+  for (const child of node.childNodes) {
+    if (child.nodeType !== 1) continue; // skip text/comment nodes — handled inline
+    const el = child as HTMLElement;
+    const tag = el.tagName?.toLowerCase();
+    const cls = (el.getAttribute('class') ?? '').toLowerCase();
+    const dir = (el.getAttribute('dir') ?? '').toLowerCase();
+    const text = (el.text ?? '').trim();
 
-function buildFromMarkdown(filePath: string): BookDocument {
-  console.log(`Parsing markdown: ${filePath}`);
-  const raw = fs.readFileSync(filePath, 'utf-8');
-  const lines = raw.split('\n');
+    // Headings
+    if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
+      if (text) out.push({
+        type:    'heading',
+        level:   (parseInt(tag[1]!, 10) as 1 | 2 | 3),
+        content: text,
+      });
+      continue;
+    }
 
-  const title  = titleArg  ?? (lines.find(l => l.startsWith('# '))?.slice(2).trim() ?? bookId!);
-  const author = authorArg ?? '';
+    // Class-driven section types (most specific match wins)
+    const classToType: Array<[string, SectionType]> = [
+      ['mishnah',       'mishnah'],
+      ['gemara',        'gemara'],
+      ['rashi',         'rashi'],
+      ['tosfos',        'tosfos'],
+      ['mefaresh',      'mefaresh'],
+      ['pasuk',         'pasuk'],
+      ['perek-open',    'perek-open'],
+      ['parsha-marker', 'parsha-marker'],
+      ['aliyah',        'aliyah'],
+    ];
+    const matched = classToType.find(([c]) => cls.split(/\s+/).includes(c));
+    if (matched) {
+      const [, sectionType] = matched;
+      const section: BookSection = { type: sectionType };
+      if (sectionType !== 'parsha-marker' && sectionType !== 'perek-open') {
+        if (text) section.content = text;
+      }
+      if (sectionType === 'mefaresh') {
+        section.speaker = el.getAttribute('data-speaker') ?? 'Commentator';
+      }
+      if (sectionType === 'pasuk') {
+        const ref = el.getAttribute('data-verse');
+        const parsed = parseVerseRef(ref);
+        if (parsed) section.verse = parsed;
+      }
+      if (sectionType === 'mishnah' && el.getAttribute('data-verse')) {
+        const parsed = parseVerseRef(el.getAttribute('data-verse'));
+        if (parsed) section.verse = parsed;
+      }
+      out.push(section);
+      continue;
+    }
 
-  const chapters: BookChapter[] = [];
-  let currentChapter: BookChapter | null = null;
-  let order = 0;
+    // Dividers
+    if (tag === 'hr' || cls.includes('divider')) {
+      out.push({ type: 'divider' });
+      continue;
+    }
 
-  for (const line of lines) {
-    if (line.startsWith('## ')) {
-      const chTitle = line.slice(3).trim();
-      currentChapter = {
-        id:    `ch-${++order}`,
-        title: chTitle,
-        order: order - 1,
-        sections: [],
-      };
-      chapters.push(currentChapter);
-    } else if (line.startsWith('# ')) {
-      // top-level heading — skip, used as title
-    } else if (line.trim() && currentChapter) {
-      const section: BookSection = /[֐-׿]/.test(line)
-        ? { type: 'hebrew',  content: line.trim() }
-        : { type: 'english', content: line.trim() };
-      currentChapter.sections.push(section);
+    // Direction-driven Hebrew vs English
+    if (text) {
+      if (tag === 'p' || tag === 'div' || tag === 'span' || tag === 'blockquote') {
+        if (dir === 'rtl' || isHebrewMajority(text)) {
+          out.push({ type: 'hebrew', content: text });
+        } else {
+          out.push({ type: 'english', content: text });
+        }
+        continue;
+      }
+    }
+
+    // Recurse into containers
+    if (el.childNodes.length > 0 && !text) {
+      walkEpub(el, out);
     }
   }
+}
 
-  if (chapters.length === 0) {
-    // No ## headings — treat whole file as one chapter
-    chapters.push({
-      id: 'ch-1', title: 'Main Text', order: 0,
-      sections: lines
-        .filter(l => l.trim() && !l.startsWith('#'))
-        .map(l => ({ type: 'english', content: l.trim() })),
-    });
+function parseVerseRef(s: string | null | undefined) {
+  if (!s) return undefined;
+  const m = s.match(/^(\d+):(\d+)$/);
+  if (!m) return undefined;
+  return { chapter: parseInt(m[1]!, 10), verse: parseInt(m[2]!, 10) };
+}
+
+function extractEpub(epubFile: string, outDir: string) {
+  // EPUB is just a zip — try the platform's built-in unzip first, then PowerShell.
+  const platform = process.platform;
+  try {
+    if (platform === 'win32') {
+      execSync(
+        `powershell -NoProfile -Command "Expand-Archive -Path '${epubFile}' -DestinationPath '${outDir}' -Force"`,
+        { stdio: 'pipe' },
+      );
+    } else {
+      execSync(`unzip -o "${epubFile}" -d "${outDir}"`, { stdio: 'pipe' });
+    }
+  } catch (e: any) {
+    fail(`Failed to unzip EPUB: ${e?.message ?? e}`);
+  }
+}
+
+// ─── Mode: markdown ────────────────────────────────────────────────────────────
+//
+// YAML frontmatter for book metadata. Chapters separated by lines containing
+// only `---chapter---`. Within each chapter:
+//   - # Title             → first becomes chapter title
+//   - ## / ###            → heading (level 2/3)
+//   - ```mishnah          → mishnah block
+//   - ```rashi            → rashi block
+//   - ```tosfos           → tosfos block
+//   - ```mefaresh:SPEAKER → mefaresh block with speaker
+//   - ```pasuk:CH:V       → pasuk with verse ref
+//   - ```hebrew           → hebrew block
+//   - ---                 → divider
+//   - paragraph           → hebrew/english based on script majority
+
+function buildFromMarkdown(inputPath: string): BookDocument {
+  const raw    = fs.readFileSync(inputPath, 'utf-8');
+  const parsed = matter(raw);
+  const meta   = parsed.data as EpubMeta;
+
+  if (!meta?.id || !meta?.title) {
+    fail('Markdown frontmatter must include id and title');
   }
 
+  const chapterBlocks = parsed.content.split(/^---chapter---\s*$/m)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (chapterBlocks.length === 0) fail('Markdown has no chapters — separate with `---chapter---`');
+
+  const chapters: BookChapter[] = chapterBlocks.map((block, i) =>
+    parseMarkdownChapter(block, i + 1)
+  );
+
   return {
-    id: bookId!,
-    schemaVersion: 2,
-    title,
-    authors: author ? [{ name: author }] : [],
-    category: 'mussar',
-    language: 'english',
-    description: '',
-    tags: [title],
-    requiresSub: false,
+    id:             meta.id,
+    title:          meta.title,
+    hebrewTitle:    meta.hebrewTitle,
+    subtitle:       meta.subtitle,
+    description:    meta.description,
+    category:       meta.category,
+    layoutMode:     meta.layoutMode,
+    language:       meta.language,
+    ageGroup:       meta.ageGroup,
+    requiresSub:    meta.requiresSub,
+    authors:        (meta.authors ?? []).map(a => ({
+      name:       a.name,
+      hebrewName: a.hebrew,
+      period:     a.years,
+    })),
+    coverGradient:  meta.coverGradient,
+    coverAccent:    meta.coverAccent,
+    tags:           meta.tags ?? [],
     chapters,
   };
 }
 
-// ─── EPUB mode ────────────────────────────────────────────────────────────────
+function parseMarkdownChapter(md: string, idx: number): BookChapter {
+  const lines = md.split(/\r?\n/);
+  const sections: BookSection[] = [];
+  let title: string | undefined;
+  let i = 0;
 
-function buildFromEpub(_filePath: string): BookDocument {
-  console.error('EPUB parsing requires the "epub" npm package.');
-  console.error('Install: npm install epub');
-  console.error('Then re-run this script.');
-  console.error('Alternatively, export as Markdown from Calibre/Sigil and use --markdown.');
-  process.exit(1);
-}
+  while (i < lines.length) {
+    const line = lines[i]!;
+    const trimmed = line.trim();
 
-// ─── Validate ─────────────────────────────────────────────────────────────────
+    // Fenced code block
+    if (trimmed.startsWith('```')) {
+      const lang = trimmed.slice(3).trim();
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i]!.trim().startsWith('```')) {
+        buf.push(lines[i]!);
+        i++;
+      }
+      i++; // consume closing fence
+      const content = buf.join('\n').trim();
+      const section = sectionFromFence(lang, content);
+      if (section) sections.push(section);
+      continue;
+    }
 
-function validate(doc: BookDocument): string[] {
-  const errors: string[] = [];
-  if (!doc.id)    errors.push('Missing id');
-  if (!doc.title) errors.push('Missing title');
-  if (doc.chapters.length === 0) errors.push('No chapters');
-  doc.chapters.forEach((ch, i) => {
-    if (!ch.id)    errors.push(`Chapter ${i}: missing id`);
-    if (!ch.title) errors.push(`Chapter ${i}: missing title`);
-    if (ch.sections.length === 0) errors.push(`Chapter ${i} (${ch.title}): no sections`);
-  });
-  return errors;
-}
+    // First single-# heading becomes the chapter title
+    if (trimmed.startsWith('# ') && !title) {
+      title = trimmed.slice(2).trim();
+      i++;
+      continue;
+    }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+    // Sub-headings
+    if (trimmed.startsWith('### ')) {
+      sections.push({ type: 'heading', level: 3, content: trimmed.slice(4).trim() });
+      i++;
+      continue;
+    }
+    if (trimmed.startsWith('## ')) {
+      sections.push({ type: 'heading', level: 2, content: trimmed.slice(3).trim() });
+      i++;
+      continue;
+    }
 
-async function main() {
-  let doc: BookDocument;
+    // Standalone --- → divider
+    if (trimmed === '---') {
+      sections.push({ type: 'divider' });
+      i++;
+      continue;
+    }
 
-  if (sefariaRef) {
-    doc = await buildFromSefaria(sefariaRef);
-  } else if (mdPath) {
-    doc = buildFromMarkdown(mdPath);
-  } else {
-    doc = buildFromEpub(epubPath!);
+    // Paragraph: accumulate until blank line
+    if (trimmed.length > 0) {
+      const buf: string[] = [trimmed];
+      i++;
+      while (i < lines.length && lines[i]!.trim().length > 0 && !looksLikeMarker(lines[i]!.trim())) {
+        buf.push(lines[i]!.trim());
+        i++;
+      }
+      const paragraph = buf.join(' ');
+      sections.push({
+        type:    isHebrewMajority(paragraph) ? 'hebrew' : 'english',
+        content: paragraph,
+      });
+      continue;
+    }
+
+    i++;
   }
 
-  const errors = validate(doc);
-  if (errors.length > 0) {
-    console.error('Validation errors:');
-    errors.forEach(e => console.error(' •', e));
+  const finalTitle = title ?? `Chapter ${idx}`;
+  return {
+    id:           slugify(finalTitle) || `ch-${idx}`,
+    title:        finalTitle,
+    pageCount:    Math.max(1, Math.round(sections.length / 8)),
+    sections,
+  };
+}
+
+function looksLikeMarker(s: string): boolean {
+  return s.startsWith('#') || s.startsWith('```') || s === '---';
+}
+
+function sectionFromFence(lang: string, content: string): BookSection | null {
+  if (!content) return null;
+  const lower = lang.toLowerCase();
+
+  if (lower === 'mishnah')  return { type: 'mishnah',  content };
+  if (lower === 'gemara')   return { type: 'gemara',   content };
+  if (lower === 'rashi')    return { type: 'rashi',    content };
+  if (lower === 'tosfos')   return { type: 'tosfos',   content };
+  if (lower === 'hebrew')   return { type: 'hebrew',   content };
+
+  // mefaresh:SPEAKER
+  if (lower.startsWith('mefaresh')) {
+    const speaker = lang.includes(':') ? lang.split(':')[1]!.trim() : 'Commentator';
+    return { type: 'mefaresh', speaker, content };
+  }
+
+  // pasuk:CH:V
+  if (lower.startsWith('pasuk')) {
+    const parts = lang.split(':');
+    const ch = parseInt(parts[1] ?? '', 10);
+    const v  = parseInt(parts[2] ?? '', 10);
+    const section: BookSection = { type: 'pasuk', content };
+    if (Number.isFinite(ch) && Number.isFinite(v)) {
+      section.verse = { chapter: ch, verse: v };
+    }
+    return section;
+  }
+
+  // Unknown fence — render as english by default
+  return { type: 'english', content };
+}
+
+// ─── Main ──────────────────────────────────────────────────────────────────────
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+
+  console.log(`\n📚 build-book — mode: ${args.mode}`);
+  console.log(`   input: ${args.input}`);
+
+  let doc: BookDocument;
+  switch (args.mode) {
+    case 'sefaria':  doc = buildFromSefaria(args.input);  break;
+    case 'epub':     doc = buildFromEpub(args.input);     break;
+    case 'markdown': doc = buildFromMarkdown(args.input); break;
+  }
+
+  const validation = validateBookDocument(doc);
+  if (!validation.valid) {
+    console.error('\n✗ Built document failed validation:');
+    validation.errors.forEach(e => console.error(`   • ${e}`));
     process.exit(1);
   }
+  validation.warnings.forEach(w => console.warn(`⚠  ${w}`));
 
-  console.log(`\nBook: ${doc.title}`);
-  console.log(`Chapters: ${doc.chapters.length}`);
-  const totalSections = doc.chapters.reduce((n, ch) => n + ch.sections.length, 0);
-  console.log(`Sections: ${totalSections}`);
-
-  if (dryRun) {
-    console.log('\nDry run — file not written.');
-    return;
-  }
-
-  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-  const outPath = path.join(outDir, `${bookId}.book.json`);
-  fs.writeFileSync(outPath, JSON.stringify(doc, null, 2), 'utf-8');
-  console.log(`\nWritten to: ${outPath}`);
-  console.log('Next: npx ts-node scripts/upload-book.ts', outPath, '--publish');
+  const outFile = writeOutput(doc, args.outDir);
+  const totalSections = doc.chapters.reduce((s, c) => s + c.sections.length, 0);
+  console.log(`\n✓ ${doc.id} — ${doc.chapters.length} chapter(s), ${totalSections} total section(s)`);
+  console.log(`   wrote ${outFile}\n`);
 }
 
-main().catch(err => {
-  console.error('Error:', err.message ?? err);
-  process.exit(1);
-});
+main();

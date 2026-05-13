@@ -1,0 +1,67 @@
+# scripts/build-book.ts --mode sefaria --input examples/pirkei-avos.sefaria.yaml
+#
+# Renders to: books-out/pirkei-avos.book.json
+#
+# Each chapter has sections: [] — at runtime the reader fetches the actual
+# text from Sefaria via sefariaRef. (See services/sefariaService.ts.)
+
+id:           pirkei-avos
+title:        Pirkei Avos
+hebrewTitle:  פרקי אבות
+subtitle:     Ethics of the Fathers
+description:  The classical mishnaic tractate of ethical teachings — six chapters of wisdom from the great sages, studied every Shabbos afternoon between Pesach and Rosh Hashanah.
+category:     mussar
+layoutMode:   side-by-side
+language:     bilingual
+ageGroup:     all
+requiresSub:  false
+
+coverGradient:
+  - "#2D5016"
+  - "#1A3010"
+coverAccent:  "#E8C547"
+
+authors:
+  - name:    The Mishnah
+    hebrew:  המשנה
+    years:   c. 200 CE
+
+tags:
+  - Classical
+  - Mussar
+  - Mishnah
+  - Avos
+  - Ethics
+  - Shabbos
+
+chapters:
+  - id:          perek-1
+    title:       Chapter 1
+    hebrewTitle: פרק א
+    sefariaRef:  Pirkei Avot 1
+    pageCount:   8
+  - id:          perek-2
+    title:       Chapter 2
+    hebrewTitle: פרק ב
+    sefariaRef:  Pirkei Avot 2
+    pageCount:   8
+  - id:          perek-3
+    title:       Chapter 3
+    hebrewTitle: פרק ג
+    sefariaRef:  Pirkei Avot 3
+    pageCount:   9
+  - id:          perek-4
+    title:       Chapter 4
+    hebrewTitle: פרק ד
+    sefariaRef:  Pirkei Avot 4
+    pageCount:   10
+  - id:          perek-5
+    title:       Chapter 5
+    hebrewTitle: פרק ה
+    sefariaRef:  Pirkei Avot 5
+    pageCount:   10
+  - id:          perek-6
+    title:       Chapter 6
+    hebrewTitle: פרק ו
+    sefariaRef:  Pirkei Avot 6
+    pageCount:   8

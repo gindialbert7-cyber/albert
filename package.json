@@ -8,7 +8,12 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "build-book": "tsx scripts/build-book.ts",
+    "validate-book": "tsx scripts/validate-book.ts",
+    "upload-book": "tsx scripts/upload-book.ts",
+    "verify-schema": "tsx scripts/verify-schema.ts",
+    "bootstrap-admin": "tsx scripts/bootstrap-admin.ts"
   },
   "dependencies": {
     "@expo-google-fonts/crimson-pro": "^0.2.3",
@@ -43,7 +48,13 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@types/js-yaml": "^4.0.9",
     "@types/react": "~18.3.12",
+    "gray-matter": "^4.0.3",
+    "js-yaml": "^4.1.1",
+    "node-html-parser": "^7.1.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3"
   },
   "private": true
