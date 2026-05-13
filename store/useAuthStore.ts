@@ -13,7 +13,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setAuthToken, ApiUser } from '@/services/api';
+import { setAuthToken, ApiUser } from '@/lib/types';
 import * as authService from '@/services/authService';
 
 export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'error';

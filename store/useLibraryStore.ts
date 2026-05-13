@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Book } from '@/constants/Books';
-import { Config } from '@/constants/Config';
 import { syncService } from '@/services/syncService';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -180,10 +179,8 @@ export const useLibraryStore = create<LibraryState>()(
       addBookmark: (bm) => {
         const newBm = { ...bm, id: uid(), createdAt: Date.now() };
         set(s => ({ bookmarks: [...s.bookmarks, newBm] }));
-        if (Config.FEATURE_CLOUD_SYNC) {
-          const userId = useAuthStore.getState().user?.id;
-          if (userId) syncService.pushBookmark(userId, newBm);
-        }
+        const userId = useAuthStore.getState().user?.id;
+        if (userId) syncService.pushBookmark(userId, newBm);
       },
 
       removeBookmark: (id) =>
@@ -192,10 +189,8 @@ export const useLibraryStore = create<LibraryState>()(
       addHighlight: (hl) => {
         const newHl = { ...hl, id: uid(), createdAt: Date.now() };
         set(s => ({ highlights: [...s.highlights, newHl] }));
-        if (Config.FEATURE_CLOUD_SYNC) {
-          const userId = useAuthStore.getState().user?.id;
-          if (userId) syncService.pushHighlight(userId, newHl);
-        }
+        const userId = useAuthStore.getState().user?.id;
+        if (userId) syncService.pushHighlight(userId, newHl);
       },
 
       removeHighlight: (id) =>
@@ -237,10 +232,8 @@ export const useLibraryStore = create<LibraryState>()(
       addWordNote: (note) => {
         const newNote = { ...note, id: uid(), createdAt: Date.now(), updatedAt: Date.now() };
         set(s => ({ wordNotes: [...s.wordNotes, newNote] }));
-        if (Config.FEATURE_CLOUD_SYNC) {
-          const userId = useAuthStore.getState().user?.id;
-          if (userId) syncService.pushWordNote(userId, newNote);
-        }
+        const userId = useAuthStore.getState().user?.id;
+        if (userId) syncService.pushWordNote(userId, newNote);
       },
 
       updateWordNote: (id, patch) =>
@@ -259,7 +252,6 @@ export const useLibraryStore = create<LibraryState>()(
       setDailyGoal: (minutes) => set({ dailyGoalMinutes: minutes }),
 
       syncNow: async () => {
-        if (!Config.FEATURE_CLOUD_SYNC) return;
         const userId = useAuthStore.getState().user?.id;
         if (!userId) return;
         try {

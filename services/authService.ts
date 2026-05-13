@@ -7,8 +7,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import { setAuthToken } from '@/services/api';
-import type { ApiUser } from '@/services/api';
+import { setAuthToken, ApiUser } from '@/lib/types';
 
 // ─── Shape returned to the store ─────────────────────────────────────────────
 

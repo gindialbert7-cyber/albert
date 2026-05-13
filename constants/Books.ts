@@ -331,101 +331,16 @@ export const CLASSIC_SEFARIM: Book[] = [
   },
 ];
 
-// ─── MODERN JEWISH BOOKS ────────────────────────────────────────────────────
+// ─── ALBERT ORIGINAL BOOKS ──────────────────────────────────────────────────
+// Placeholder for Albert's own commissioned and licensed content.
+// Populate via scripts/upload-book.ts after receiving rights clearance.
 
-export const MODERN_BOOKS: Book[] = [
-  {
-    id: 'rabbi-sacks-great-partnership',
-    title: 'The Great Partnership',
-    subtitle: 'Science, Religion, and the Search for Meaning',
-    authors: [{ name: 'Rabbi Lord Jonathan Sacks', years: '1948–2020' }],
-    category: 'philosophy',
-    layout: 'english-only',
-    ageGroup: 'adult',
-    language: 'english',
-    coverGradient: ['#1A3A6A', '#0F2050'],
-    coverAccent: '#C9A84C',
-    pageCount: 320,
-    isNew: false,
-    isFeatured: true,
-    requiresSub: true,
-    description:
-      "Rabbi Sacks's profound exploration of how science and religion are not enemies but partners in humanity's search for meaning.",
-    tags: ['Rabbi Sacks', 'Philosophy', 'Science', 'Religion', 'Meaning'],
-    chapters: [
-      { id: 'ch1', title: 'The Conflict That Never Was', pages: 30 },
-      { id: 'ch2', title: 'The Two Modes of the Mind', pages: 28 },
-    ],
-  },
+export const ORIGINAL_BOOKS: Book[] = [];
 
-  {
-    id: 'rabbi-sacks-dignity-of-difference',
-    title: 'The Dignity of Difference',
-    subtitle: 'How to Avoid the Clash of Civilizations',
-    authors: [{ name: 'Rabbi Lord Jonathan Sacks', years: '1948–2020' }],
-    category: 'modern',
-    layout: 'english-only',
-    ageGroup: 'adult',
-    language: 'english',
-    coverGradient: ['#2A1A6A', '#180F40'],
-    coverAccent: '#E8C547',
-    pageCount: 240,
-    requiresSub: true,
-    description:
-      'A visionary call for a new global ethic of coexistence, rooted in the profound Jewish insight that difference itself is sacred.',
-    tags: ['Rabbi Sacks', 'Ethics', 'Society', 'Difference', 'Peace'],
-    chapters: [
-      { id: 'ch1', title: 'The Universality of Difference', pages: 32 },
-    ],
-  },
+// kept for back-compat during transition — remove after full migration
+export const MODERN_BOOKS = ORIGINAL_BOOKS;
 
-  {
-    id: 'rav-soloveitchik-lonely-man',
-    title: 'The Lonely Man of Faith',
-    authors: [{ name: 'Rabbi Joseph B. Soloveitchik', years: '1903–1993' }],
-    category: 'philosophy',
-    layout: 'english-only',
-    ageGroup: 'adult',
-    language: 'english',
-    coverGradient: ['#0A1E2A', '#050F15'],
-    coverAccent: '#C9A84C',
-    pageCount: 128,
-    isClassic: true,
-    isFeatured: true,
-    requiresSub: true,
-    description:
-      "The Rav's iconic meditation on the dual nature of man as reflected in the two creation narratives — one of the great works of 20th-century Jewish thought.",
-    tags: ['Soloveitchik', 'Philosophy', 'Modern Orthodox', 'Faith'],
-    chapters: [
-      { id: 'adam1', title: 'Adam the First', pages: 32 },
-      { id: 'adam2', title: 'Adam the Second', pages: 36 },
-      { id: 'confrontation', title: 'The Confrontation', pages: 28 },
-    ],
-  },
-
-  {
-    id: 'night-wiesel',
-    title: 'Night',
-    authors: [{ name: 'Elie Wiesel', years: '1928–2016' }],
-    category: 'biography',
-    layout: 'english-only',
-    ageGroup: 'teen',
-    language: 'english',
-    coverGradient: ['#0A0A0A', '#1A1A1A'],
-    coverAccent: '#E8C547',
-    pageCount: 120,
-    isFeatured: true,
-    requiresSub: true,
-    description:
-      "Elie Wiesel's devastating and transcendent memoir of his experience as a teenager in the Nazi concentration camps.",
-    tags: ['Holocaust', 'Memoir', 'Wiesel', 'History'],
-    chapters: [
-      { id: 'ch1', title: 'Part One', pages: 24 },
-      { id: 'ch2', title: 'Part Two', pages: 22 },
-      { id: 'ch3', title: 'Part Three', pages: 22 },
-    ],
-  },
-];
+// Copyrighted titles removed. Add Albert originals here via upload-book.ts.
 
 // ─── CHILDREN'S BOOKS ───────────────────────────────────────────────────────
 
@@ -775,100 +690,8 @@ export const ADDITIONAL_CLASSICS: Book[] = [
   },
 ];
 
-// ─── ADDITIONAL MODERN ──────────────────────────────────────────────────────
-
-export const ADDITIONAL_MODERN: Book[] = [
-  {
-    id: 'rav-soloveitchik-halakhic-man',
-    title: 'Halakhic Man',
-    subtitle: 'A Phenomenology of Religious Existence',
-    authors: [{ name: 'Rabbi Joseph B. Soloveitchik', years: '1903–1993' }],
-    category: 'philosophy',
-    layout: 'english-only',
-    ageGroup: 'adult',
-    language: 'english',
-    coverGradient: ['#0A1E3A', '#050F1E'],
-    coverAccent: '#C9A84C',
-    pageCount: 140,
-    isClassic: true,
-    requiresSub: true,
-    description: 'The Rav\'s analysis of the unique religious type of the halakhic man — a personality who approaches the world through the categories of Torah law, creating an entirely new mode of religious existence.',
-    tags: ['Soloveitchik', 'Philosophy', 'Halacha', 'Religious Existence'],
-    chapters: [
-      { id: 'part1', title: 'Halakhic Man', pages: 70 },
-      { id: 'part2', title: 'Repentant Man', pages: 70 },
-    ],
-  },
-  {
-    id: 'rabbi-sacks-covenant',
-    title: 'Covenant & Conversation',
-    subtitle: 'Genesis: The Book of Beginnings',
-    authors: [{ name: 'Rabbi Lord Jonathan Sacks', years: '1948–2020' }],
-    category: 'modern',
-    layout: 'english-only',
-    ageGroup: 'adult',
-    language: 'english',
-    coverGradient: ['#2A1A5A', '#160D30'],
-    coverAccent: '#E8C547',
-    pageCount: 380,
-    isNew: true,
-    isFeatured: false,
-    requiresSub: true,
-    description: 'Rabbi Sacks\'s weekly Torah commentaries on Genesis — combining rabbinic learning, philosophy, and contemporary insight into one of the great works of modern Jewish thought.',
-    tags: ['Rabbi Sacks', 'Torah', 'Genesis', 'Commentary', 'Weekly Parasha'],
-    chapters: [
-      { id: 'bereishis', title: 'Bereishis — Creation', pages: 28 },
-      { id: 'noach', title: 'Noach — The Flood', pages: 26 },
-      { id: 'lech-lecha', title: 'Lech Lecha — The Journey', pages: 28 },
-      { id: 'vayeira', title: 'Vayeira — The Test', pages: 30 },
-      { id: 'chayei-sarah', title: 'Chayei Sarah — A Life Well Lived', pages: 26 },
-    ],
-  },
-  {
-    id: 'man-is-not-alone',
-    title: 'Man Is Not Alone',
-    subtitle: 'A Philosophy of Religion',
-    authors: [{ name: 'Rabbi Abraham Joshua Heschel', years: '1907–1972' }],
-    category: 'philosophy',
-    layout: 'english-only',
-    ageGroup: 'adult',
-    language: 'english',
-    coverGradient: ['#1A2A4A', '#0D1828'],
-    coverAccent: '#C9A84C',
-    pageCount: 305,
-    requiresSub: true,
-    isFeatured: true,
-    description: 'Heschel\'s masterwork on the phenomenology of religious experience — exploring wonder, awe, and the nature of God\'s search for humanity. One of the most beautiful books of Jewish spirituality in the English language.',
-    tags: ['Heschel', 'Philosophy', 'Awe', 'Wonder', 'Spirituality', 'God'],
-    chapters: [
-      { id: 'ch1', title: 'The Sense of the Ineffable', pages: 40 },
-      { id: 'ch2', title: 'God in Search of Man', pages: 38 },
-      { id: 'ch3', title: 'The Divine Pathos', pages: 36 },
-    ],
-  },
-  {
-    id: 'thirteen-petalled-rose',
-    title: 'The Thirteen Petalled Rose',
-    subtitle: 'A Discourse on the Essence of Jewish Existence and Belief',
-    authors: [{ name: 'Rabbi Adin Steinsaltz', years: '1937–2020' }],
-    category: 'chasidus',
-    layout: 'english-only',
-    ageGroup: 'adult',
-    language: 'english',
-    coverGradient: ['#3A1A4A', '#1E0D28'],
-    coverAccent: '#E8C547',
-    pageCount: 200,
-    requiresSub: true,
-    description: 'Rabbi Steinsaltz\'s accessible introduction to Kabbalah and Chassidus — exploring the nature of the soul, the sefirot, prayer, and the spiritual dimensions of Torah life.',
-    tags: ['Kabbalah', 'Steinsaltz', 'Soul', 'Spirituality', 'Mysticism'],
-    chapters: [
-      { id: 'worlds', title: 'The Worlds', pages: 40 },
-      { id: 'soul', title: 'The Soul', pages: 40 },
-      { id: 'divine', title: 'The Divine', pages: 40 },
-      { id: 'torah', title: 'Torah & Mitzvos', pages: 40 },
-    ],
-  },
-];
+// ADDITIONAL_MODERN kept as alias — copyrighted titles removed
+export const ADDITIONAL_MODERN: Book[] = [];
 
 // ─── ADDITIONAL CHILDREN ─────────────────────────────────────────────────────
 
@@ -974,6 +797,6 @@ export const SECTIONS = [
   { key: 'featured',  label: 'Featured',          books: FEATURED_BOOKS },
   { key: 'classics',  label: 'Classic Sefarim',    books: CLASSIC_SEFARIM },
   { key: 'children',  label: "Children's Books",   books: CHILDRENS_BOOKS },
-  { key: 'modern',    label: 'Modern Jewish Books', books: MODERN_BOOKS },
+  { key: 'modern',    label: 'Albert Originals',    books: ORIGINAL_BOOKS },
   { key: 'free',      label: 'Free to Read',        books: FREE_BOOKS },
 ] as const;
