@@ -174,8 +174,8 @@ export default function ResetPasswordScreen() {
             <Text style={s.errorText}>{errMsg}</Text>
           )}
 
-          {/* Loading wait */}
-          {!sessionReady && state !== 'invalid' && (
+          {/* Loading wait — the 'invalid' branch already returned early above */}
+          {!sessionReady && (
             <Text style={s.waiting}>Verifying reset link…</Text>
           )}
 

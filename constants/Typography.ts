@@ -14,6 +14,8 @@ export const Fonts = {
   hebrewMedium:   'FrankRuhlLibre_500Medium',
   hebrewBold:     'FrankRuhlLibre_700Bold',
   hebrewBlack:    'FrankRuhlLibre_900Black',
+  /** Alias for ceremonial Hebrew display use (Frank Ruhl Libre Black). */
+  hebrewDisplay:  'FrankRuhlLibre_900Black',
 
   // English serif (body / reader)
   serifRegular:   'CrimsonPro_400Regular',

@@ -92,7 +92,7 @@ export async function signUp(
   });
   if (error) throw error;
 
-  if (!data.session) {
+  if (!data.session || !data.user) {
     // Supabase email confirmation is enabled — user must verify before logging in.
     // Throw a typed error the store can recognise.
     const e = new Error('Please check your email to confirm your account.') as any;

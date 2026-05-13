@@ -42,8 +42,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!user) { setIsAdmin(false); return; }
     supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-      .then(({ data }) => setIsAdmin(data?.is_admin === true))
-      .catch(() => {});
+      .then(({ data }) => setIsAdmin(data?.is_admin === true), () => {});
   }, [user?.id]);
 
   const booksRead = Object.values(positions).filter(p => p.progress > 0).length;

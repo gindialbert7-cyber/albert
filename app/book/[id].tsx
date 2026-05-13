@@ -176,7 +176,7 @@ export default function BookReaderScreen() {
 
   const chapterProgress = (activeChapter + progress) / Math.max(1, book.chapters.length);
 
-  function handleScroll(event: any) {
+  const handleScroll = (event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const y  = contentOffset.y;
     const h  = contentSize.height;
@@ -187,7 +187,6 @@ export default function BookReaderScreen() {
 
     // Save position every scroll
     if (chapter) {
-      const prog = h > lh ? Math.min(1, (y + lh) / h) : 1;
       savePosition({
         bookId:     book.id,
         chapterId:  chapter.id,
@@ -197,9 +196,9 @@ export default function BookReaderScreen() {
         updatedAt:  Date.now(),
       });
     }
-  }
+  };
 
-  function handleBookmark() {
+  const handleBookmark = () => {
     if (isBookmarked) {
       const bm = bookmarks.find(b => b.bookId === book.id && b.chapterId === chapter?.id);
       if (bm) removeBookmark(bm.id);
@@ -210,13 +209,13 @@ export default function BookReaderScreen() {
         chapterId:    chapter.id,
         chapterTitle: chapter.title,
         page:         1,
-        excerpt:      content.find((s: TextSection) => s.type === 'english' || s.type === 'hebrew')?.content.slice(0, 80),
+        excerpt:      content.find((s: TextSection) => s.type === 'english' || s.type === 'hebrew')?.content?.slice(0, 80),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-  }
+  };
 
-  function handleTap() {
+  const handleTap = () => {
     const now = Date.now();
     if (now - lastTap.current < 300) {
       setToolbarVisible(false);
@@ -224,14 +223,14 @@ export default function BookReaderScreen() {
       setToolbarVisible(v => !v);
     }
     lastTap.current = now;
-  }
+  };
 
-  function handleLongPressSection(sectionIdx: number, text: string) {
+  const handleLongPressSection = (sectionIdx: number, text: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setNoteSheet({ visible: true, sectionIdx, text });
-  }
+  };
 
-  function handleSaveNote(color: string, noteText: string) {
+  const handleSaveNote = (color: string, noteText: string) => {
     if (!chapter) return;
     // Always save a highlight (visible in-reader)
     addHighlight({
@@ -260,13 +259,13 @@ export default function BookReaderScreen() {
     }
     setNoteSheet({ visible: false, sectionIdx: 0, text: '' });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }
+  };
 
-  function handleShare(text: string) {
+  const handleShare = (text: string) => {
     Share.share({
       message: `${text}\n\n— ${book.hebrewTitle ?? book.title}${chapter ? `, ${chapter.title}` : ''}\n\nRead on Albert`,
     });
-  }
+  };
 
   const chapterHighlights = highlights.filter(
     h => h.bookId === book.id && h.chapterId === chapter?.id,
@@ -1331,6 +1330,10 @@ const sectionStyles = StyleSheet.create({
 // ── v2 section styles ─────────────────────────────────────────────────────
 
 const v2Styles = StyleSheet.create({
+  // Ceremonial label above a mishnah / pasuk reference
+  kicker: {
+    ...ReaderType.kicker,
+  },
   // Mishnah — elevated commanding block
   mishnahBlock: {
     marginBottom:   Space[5],

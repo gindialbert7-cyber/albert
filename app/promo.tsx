@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
+import { Config } from '@/constants/Config';
 import { Fonts } from '@/constants/Typography';
 import { Space, Radius } from '@/constants/Spacing';
 import { Palette } from '@/constants/Colors';

@@ -22,6 +22,13 @@ export const Space = {
   16:   64,
   20:   80,
   24:   96,
+  // Semantic aliases (T-shirt scale) used by newer screens.
+  xs:   4,
+  sm:   8,
+  md:   16,
+  lg:   24,
+  xl:   32,
+  '2xl':48,
 };
 
 export const Radius = {

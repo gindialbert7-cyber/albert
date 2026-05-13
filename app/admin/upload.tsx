@@ -147,10 +147,15 @@ export default function AdminUpload() {
         disabled={busy || !json.trim()}
       >
         {busy
-          ? <ActivityIndicator color={Palette.navyDeep} />
-          : <Text style={s.uploadBtnText}>
-              {status === 'validating' ? 'Validating…' : status === 'uploading' ? 'Uploading…' : '⬆  Upload Book'}
-            </Text>
+          ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator color={Palette.navyDeep} />
+              <Text style={s.uploadBtnText}>
+                {status === 'validating' ? 'Validating…' : 'Uploading…'}
+              </Text>
+            </View>
+          )
+          : <Text style={s.uploadBtnText}>⬆  Upload Book</Text>
         }
       </Pressable>
 

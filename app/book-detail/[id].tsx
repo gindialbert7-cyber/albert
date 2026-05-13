@@ -60,12 +60,12 @@ export default function BookDetailScreen() {
   const coverW = isTablet ? 200 : 150;
   const coverH = Math.round(coverW * 1.5);
 
-  function handleReadNow() {
+  const handleReadNow = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push({ pathname: '/book/[id]', params: { id: book.id } });
-  }
+  };
 
-  function handleLibraryToggle() {
+  const handleLibraryToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (inLibrary) {
       Alert.alert(
@@ -79,13 +79,13 @@ export default function BookDetailScreen() {
     } else {
       addToLibrary(book.id);
     }
-  }
+  };
 
-  function handleShare() {
+  const handleShare = () => {
     Share.share({
       message: `I'm reading "${book.title}"${book.hebrewTitle ? ` (${book.hebrewTitle})` : ''} on Albert — the Jewish Reading Library.`,
     });
-  }
+  };
 
   return (
     <View style={styles.root}>
