@@ -7,7 +7,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import { setAuthToken, ApiUser } from '@/lib/types';
+import type { ApiUser } from '@/lib/types';
 
 // ─── Shape returned to the store ─────────────────────────────────────────────
 
@@ -75,7 +75,6 @@ export async function signIn(email: string, password: string): Promise<AuthResul
   if (error) throw error;
 
   const { session, user } = data;
-  setAuthToken(session.access_token);
 
   const profile = await fetchProfile(user.id);
   return sessionToResult(session, user, profile);
@@ -102,7 +101,6 @@ export async function signUp(
   }
 
   const { session, user } = data;
-  setAuthToken(session.access_token);
 
   // Upsert profile row with chosen display name.
   await supabase.from('profiles').upsert({ id: user.id, display_name: displayName });
@@ -112,7 +110,6 @@ export async function signUp(
 
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
-  setAuthToken(null);
 }
 
 export async function refreshSession(): Promise<AuthResult | null> {
@@ -120,7 +117,6 @@ export async function refreshSession(): Promise<AuthResult | null> {
   if (error || !data.session || !data.user) return null;
 
   const { session, user } = data;
-  setAuthToken(session.access_token);
 
   const profile = await fetchProfile(user.id);
   return sessionToResult(session, user, profile);
@@ -146,8 +142,6 @@ export async function updatePassword(newPassword: string): Promise<void> {
 export async function getCurrentSession(): Promise<AuthResult | null> {
   const { data: { session }, error } = await supabase.auth.getSession();
   if (error || !session) return null;
-
-  setAuthToken(session.access_token);
 
   const profile = await fetchProfile(session.user.id);
   return sessionToResult(session, session.user, profile);

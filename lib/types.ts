@@ -1,6 +1,7 @@
 /**
  * Shared application-level types.
- * Replaces the type exports that previously lived in services/api.ts.
+ * Lives in lib/ so it can be imported from services, stores, and screens
+ * without creating circular deps through a service module.
  */
 
 export interface ApiUser {
@@ -9,14 +10,4 @@ export interface ApiUser {
   displayName: string;
   avatarUrl?:  string;
   createdAt:   string;
-}
-
-let _authToken: string | null = null;
-
-export function setAuthToken(token: string | null): void {
-  _authToken = token;
-}
-
-export function getAuthToken(): string | null {
-  return _authToken;
 }

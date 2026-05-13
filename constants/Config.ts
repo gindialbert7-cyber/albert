@@ -10,10 +10,6 @@ export const Config = {
   // Service role key — NEVER ship in the app bundle; only used in scripts/
   // SUPABASE_SERVICE_ROLE_KEY: 'YOUR_SERVICE_ROLE_KEY',
 
-  // API (legacy REST wrapper — now routes through Supabase)
-  API_BASE_URL:   __DEV__ ? 'https://dev-api.albert-app.com/v1' : 'https://api.albert-app.com/v1',
-  API_TIMEOUT_MS: 10_000,
-
   // RevenueCat (in-app purchases)
   REVENUECAT_KEY_IOS:     'appl_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
   REVENUECAT_KEY_ANDROID: 'goog_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
