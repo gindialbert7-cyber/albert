@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Switch,
-  useColorScheme, Linking, Alert,
+  useColorScheme, Linking, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,7 +28,11 @@ export default function ProfileScreen() {
     isDarkMode, usesSystemTheme,
     setDarkMode, setUsesSystem, setTheme, setFontSize,
     streak, longestStreak, totalMinutesRead,
+    dailyGoalMinutes, setDailyGoal,
+    lastSyncedAt, syncNow,
   } = useLibraryStore();
+
+  const [syncing, setSyncing] = useState(false);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const systemScheme = useColorScheme();
@@ -134,6 +138,9 @@ export default function ProfileScreen() {
 
         {/* ── Reader Settings ────────────────────────────────────────── */}
         <SettingsSection title="Reading" hebrewTitle="קריאה">
+          <SettingsRow icon="🎯" label="Daily Learning Goal" value={
+            <GoalSelector current={dailyGoalMinutes} onChange={setDailyGoal} />
+          } />
           <SettingsRow icon="🎨" label="Reading Theme" value={
             <ThemeSelector current={theme} onChange={setTheme} />
           } />
@@ -188,7 +195,27 @@ export default function ProfileScreen() {
           ) : (
             <SettingsRow icon="👤" label="Sign In / Register" value="→" onPress={() => router.push('/auth/sign-in')} />
           )}
-          <SettingsRow icon="☁️" label="Sync Across Devices" value={user ? '✓ Active' : 'Sign in to sync'} />
+          <SettingsRow
+            icon="☁️"
+            label="Cloud Sync"
+            value={
+              user ? (
+                <SyncControl
+                  lastSyncedAt={lastSyncedAt}
+                  syncing={syncing}
+                  onSync={async () => {
+                    setSyncing(true);
+                    await syncNow();
+                    setSyncing(false);
+                  }}
+                />
+              ) : (
+                <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#5A5040' }}>
+                  Sign in to sync
+                </Text>
+              )
+            }
+          />
           {isAdmin && (
             <SettingsRow
               icon="⚙️"
@@ -797,5 +824,107 @@ const settingStyles = StyleSheet.create({
     fontFamily: Fonts.sansRegular,
     fontSize:   13,
     color:      '#5A5040',
+  },
+});
+
+// ── GoalSelector ──────────────────────────────────────────────────────────────
+
+const GOAL_OPTIONS = [10, 15, 30, 45, 60] as const;
+
+function GoalSelector({ current, onChange }: { current: number; onChange: (m: number) => void }) {
+  return (
+    <View style={gStyles.row}>
+      {GOAL_OPTIONS.map(m => (
+        <Pressable
+          key={m}
+          style={[gStyles.pill, current === m && gStyles.pillActive]}
+          onPress={() => onChange(m)}
+        >
+          <Text style={[gStyles.pillText, current === m && gStyles.pillTextActive]}>
+            {m}m
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const gStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  pill: {
+    paddingHorizontal: 10,
+    paddingVertical:    4,
+    borderRadius:      Radius.pill,
+    borderWidth:       1,
+    borderColor:       '#1E2A40',
+  },
+  pillActive: {
+    backgroundColor: Palette.navyMid,
+    borderColor:     Palette.goldMid,
+  },
+  pillText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   12,
+    color:      '#3A4A60',
+  },
+  pillTextActive: {
+    color: Palette.goldBright,
+  },
+});
+
+// ── SyncControl ───────────────────────────────────────────────────────────────
+
+function SyncControl({
+  lastSyncedAt, syncing, onSync,
+}: { lastSyncedAt: number | null; syncing: boolean; onSync: () => void }) {
+  function label() {
+    if (!lastSyncedAt) return 'Never synced';
+    const mins = Math.floor((Date.now() - lastSyncedAt) / 60_000);
+    if (mins < 1) return 'Synced just now';
+    if (mins < 60) return `Synced ${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    return `Synced ${hrs}h ago`;
+  }
+
+  return (
+    <View style={scStyles.row}>
+      <Text style={scStyles.label}>{label()}</Text>
+      <Pressable
+        style={[scStyles.btn, syncing && scStyles.btnLoading]}
+        onPress={onSync}
+        disabled={syncing}
+      >
+        {syncing
+          ? <ActivityIndicator size="small" color={Palette.navyDeep} />
+          : <Text style={scStyles.btnText}>Sync Now</Text>
+        }
+      </Pressable>
+    </View>
+  );
+}
+
+const scStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  label: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   11,
+    color:      '#5A5040',
+  },
+  btn: {
+    paddingHorizontal: 10,
+    paddingVertical:    4,
+    borderRadius:      Radius.pill,
+    backgroundColor:   Palette.goldBright,
+    minWidth:          70,
+    alignItems:        'center',
+  },
+  btnLoading: {
+    opacity: 0.7,
+  },
+  btnText: {
+    fontFamily:   Fonts.sansBold,
+    fontSize:     11,
+    color:        Palette.navyDeep,
+    letterSpacing: 0.2,
   },
 });

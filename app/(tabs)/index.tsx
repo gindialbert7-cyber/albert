@@ -22,6 +22,7 @@ import FeaturedHero from '@/components/library/FeaturedHero';
 import BookShelf from '@/components/library/BookShelf';
 import GoldDivider from '@/components/ui/GoldDivider';
 import DailyLearningCard from '@/components/home/DailyLearningCard';
+import ProgressBar from '@/components/ui/ProgressBar';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const isTablet = SCREEN_W >= 768;
@@ -30,7 +31,7 @@ export default function HomeScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const heroBook = FEATURED_BOOKS[0];
 
-  const { recentBooks, myBooks, streak } = useLibraryStore();
+  const { recentBooks, myBooks, streak, todayMinutes, dailyGoalMinutes } = useLibraryStore();
   const { isActive, isTrialing }         = useSubscriptionStore();
   const shabbat = getShabbatInfo();
   const hasSubscription = isActive || isTrialing;
@@ -134,8 +135,15 @@ export default function HomeScreen() {
             <Text style={styles.sectionHebrew}>לימוד יומי</Text>
             <Text style={styles.sectionTitle}>Today's Learning</Text>
           </View>
+          <Pressable
+            style={styles.parashapill}
+            onPress={() => router.push('/parasha' as any)}
+          >
+            <Text style={styles.parashaPillText}>פרשה →</Text>
+          </Pressable>
         </View>
         <DailyLearningCard />
+        <GoalCard todayMinutes={todayMinutes} dailyGoalMinutes={dailyGoalMinutes} />
 
         {/* ── Continue reading ──────────────────────────────────────── */}
         {continueBooks.length > 0 && (
@@ -446,5 +454,126 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansRegular,
     fontSize:   10,
     color:      '#5A5040',
+  },
+
+  // Parasha pill in section header
+  parashapill: {
+    paddingHorizontal: Space[3],
+    paddingVertical:   Space[1],
+    borderRadius:      Radius.pill,
+    borderWidth:       1,
+    borderColor:       Palette.goldMid + '40',
+  },
+  parashaPillText: {
+    fontFamily: Fonts.hebrewMedium,
+    fontSize:   13,
+    color:      Palette.goldMid,
+  },
+});
+
+// ── GoalCard ──────────────────────────────────────────────────────────────────
+
+function GoalCard({ todayMinutes, dailyGoalMinutes }: { todayMinutes: number; dailyGoalMinutes: number }) {
+  const progress = dailyGoalMinutes > 0 ? Math.min(1, todayMinutes / dailyGoalMinutes) : 0;
+  const goalMet  = todayMinutes >= dailyGoalMinutes;
+
+  return (
+    <View style={goalStyles.wrapper}>
+      <LinearGradient colors={['#0F1E38', '#0A1428']} style={goalStyles.card}>
+        <View style={goalStyles.row}>
+          <View style={goalStyles.labelGroup}>
+            <Text style={goalStyles.icon}>🎯</Text>
+            <View>
+              <Text style={goalStyles.label}>Today's Goal</Text>
+              <Text style={goalStyles.sub}>Daily learning target</Text>
+            </View>
+          </View>
+          <View style={goalStyles.countGroup}>
+            {goalMet ? (
+              <Text style={goalStyles.complete}>✓ Complete!</Text>
+            ) : (
+              <Text style={goalStyles.count}>
+                <Text style={goalStyles.countDone}>{todayMinutes}</Text>
+                <Text style={goalStyles.countTotal}> / {dailyGoalMinutes} min</Text>
+              </Text>
+            )}
+          </View>
+        </View>
+        <View style={goalStyles.barWrap}>
+          <ProgressBar
+            progress={progress}
+            height={5}
+            trackColor="rgba(255,255,255,0.08)"
+            fillColor={goalMet ? Palette.goldBright : Palette.goldMid}
+          />
+        </View>
+      </LinearGradient>
+    </View>
+  );
+}
+
+const goalStyles = StyleSheet.create({
+  wrapper: {
+    marginHorizontal: Space[5],
+    marginBottom:     Space[4],
+    borderRadius:     Radius.xl,
+    overflow:         'hidden',
+    borderWidth:      1,
+    borderColor:      Palette.goldMid + '20',
+  },
+  card: {
+    paddingHorizontal: Space[5],
+    paddingTop:        Space[4],
+    paddingBottom:     Space[4],
+    gap:               Space[3],
+  },
+  row: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+  },
+  labelGroup: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           Space[3],
+  },
+  icon: {
+    fontSize: 20,
+  },
+  label: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize:   13,
+    color:      '#EDE8DD',
+  },
+  sub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize:   10,
+    color:      '#5A5040',
+    marginTop:  1,
+  },
+  countGroup: {
+    alignItems: 'flex-end',
+  },
+  count: {
+    fontFamily: Fonts.sansMedium,
+    fontSize:   13,
+  },
+  countDone: {
+    fontFamily: Fonts.sansBold,
+    color:      Palette.goldBright,
+    fontSize:   18,
+  },
+  countTotal: {
+    color:    '#5A5040',
+    fontSize: 12,
+  },
+  complete: {
+    fontFamily: Fonts.sansBold,
+    fontSize:   13,
+    color:      Palette.goldBright,
+    letterSpacing: 0.3,
+  },
+  barWrap: {
+    marginTop: 2,
   },
 });

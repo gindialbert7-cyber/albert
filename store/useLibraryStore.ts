@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Book } from '@/constants/Books';
+import { Config } from '@/constants/Config';
+import { syncService } from '@/services/syncService';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export interface ReadingPosition {
   bookId:     string;
@@ -84,10 +87,15 @@ interface LibraryState {
   wordNotes: WordNote[];
 
   // Learning streak
-  streak:          number;         // current consecutive days
-  longestStreak:   number;         // all-time best streak
-  lastLearnedDate: string | null;  // YYYY-MM-DD
-  totalMinutesRead:number;
+  streak:           number;        // current consecutive days
+  longestStreak:    number;        // all-time best streak
+  lastLearnedDate:  string | null; // YYYY-MM-DD
+  totalMinutesRead: number;
+  todayMinutes:     number;        // resets each new day
+  dailyGoalMinutes: number;        // user-set target
+
+  // Sync
+  lastSyncedAt:     number | null; // epoch ms
 
   // Actions
   addToLibrary:     (bookId: string) => void;
@@ -112,6 +120,8 @@ interface LibraryState {
   updateWordNote:   (id: string, patch: Partial<Pick<WordNote, 'noteText' | 'color'>>) => void;
   deleteWordNote:   (id: string) => void;
   getNotesForChapter: (bookId: string, chapterId: string) => WordNote[];
+  setDailyGoal:       (minutes: number) => void;
+  syncNow:            () => Promise<void>;
   /** Sync variants — insert with explicit id/timestamps from remote (no duplication) */
   syncBookmark:     (bm: BookmarkItem) => void;
   syncHighlight:    (hl: HighlightItem) => void;
@@ -141,6 +151,9 @@ export const useLibraryStore = create<LibraryState>()(
       longestStreak:    0,
       lastLearnedDate:  null,
       totalMinutesRead: 0,
+      todayMinutes:     0,
+      dailyGoalMinutes: 15,
+      lastSyncedAt:     null,
       dualColumnByBook: {},
 
       addToLibrary: (bookId) =>
@@ -164,37 +177,49 @@ export const useLibraryStore = create<LibraryState>()(
         return pos?.progress ?? 0;
       },
 
-      addBookmark: (bm) =>
-        set(s => ({
-          bookmarks: [...s.bookmarks, { ...bm, id: uid(), createdAt: Date.now() }],
-        })),
+      addBookmark: (bm) => {
+        const newBm = { ...bm, id: uid(), createdAt: Date.now() };
+        set(s => ({ bookmarks: [...s.bookmarks, newBm] }));
+        if (Config.FEATURE_CLOUD_SYNC) {
+          const userId = useAuthStore.getState().user?.id;
+          if (userId) syncService.pushBookmark(userId, newBm);
+        }
+      },
 
       removeBookmark: (id) =>
         set(s => ({ bookmarks: s.bookmarks.filter(b => b.id !== id) })),
 
-      addHighlight: (hl) =>
-        set(s => ({
-          highlights: [...s.highlights, { ...hl, id: uid(), createdAt: Date.now() }],
-        })),
+      addHighlight: (hl) => {
+        const newHl = { ...hl, id: uid(), createdAt: Date.now() };
+        set(s => ({ highlights: [...s.highlights, newHl] }));
+        if (Config.FEATURE_CLOUD_SYNC) {
+          const userId = useAuthStore.getState().user?.id;
+          if (userId) syncService.pushHighlight(userId, newHl);
+        }
+      },
 
       removeHighlight: (id) =>
         set(s => ({ highlights: s.highlights.filter(h => h.id !== id) })),
 
       recordLearning: (minutes = 5) => {
-        const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const todayStr = new Date().toISOString().slice(0, 10);
         set(s => {
           if (s.lastLearnedDate === todayStr) {
-            return { totalMinutesRead: s.totalMinutesRead + minutes };
+            return {
+              totalMinutesRead: s.totalMinutesRead + minutes,
+              todayMinutes:     s.todayMinutes + minutes,
+            };
           }
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
           const yesterdayStr = yesterday.toISOString().slice(0, 10);
           const newStreak = s.lastLearnedDate === yesterdayStr ? s.streak + 1 : 1;
           return {
-            streak:          newStreak,
-            longestStreak:   Math.max(s.longestStreak, newStreak),
-            lastLearnedDate: todayStr,
-            totalMinutesRead:s.totalMinutesRead + minutes,
+            streak:           newStreak,
+            longestStreak:    Math.max(s.longestStreak, newStreak),
+            lastLearnedDate:  todayStr,
+            totalMinutesRead: s.totalMinutesRead + minutes,
+            todayMinutes:     minutes, // reset for new day
           };
         });
       },
@@ -209,13 +234,14 @@ export const useLibraryStore = create<LibraryState>()(
       setDualColumn:  (bookId, on) =>
         set(s => ({ dualColumnByBook: { ...s.dualColumnByBook, [bookId]: on } })),
 
-      addWordNote: (note) =>
-        set(s => ({
-          wordNotes: [
-            ...s.wordNotes,
-            { ...note, id: uid(), createdAt: Date.now(), updatedAt: Date.now() },
-          ],
-        })),
+      addWordNote: (note) => {
+        const newNote = { ...note, id: uid(), createdAt: Date.now(), updatedAt: Date.now() };
+        set(s => ({ wordNotes: [...s.wordNotes, newNote] }));
+        if (Config.FEATURE_CLOUD_SYNC) {
+          const userId = useAuthStore.getState().user?.id;
+          if (userId) syncService.pushWordNote(userId, newNote);
+        }
+      },
 
       updateWordNote: (id, patch) =>
         set(s => ({
@@ -229,6 +255,20 @@ export const useLibraryStore = create<LibraryState>()(
 
       getNotesForChapter: (bookId, chapterId) =>
         get().wordNotes.filter(n => n.bookId === bookId && n.chapterId === chapterId),
+
+      setDailyGoal: (minutes) => set({ dailyGoalMinutes: minutes }),
+
+      syncNow: async () => {
+        if (!Config.FEATURE_CLOUD_SYNC) return;
+        const userId = useAuthStore.getState().user?.id;
+        if (!userId) return;
+        try {
+          await syncService.pullAll(userId);
+          set({ lastSyncedAt: Date.now() });
+        } catch {
+          // Silently ignore offline / auth errors
+        }
+      },
 
       // Sync variants (accept full item with remote id — no-op if id already exists)
       syncBookmark: (bm) =>
