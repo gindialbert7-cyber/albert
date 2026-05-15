@@ -13,6 +13,14 @@ import { Palette, pickFlowerColor } from './palette';
 import { watercolorWash, lighten, darken } from './watercolor';
 import { fmt1, fmt2 } from './math/det-format';
 import { dSin, dCos } from './math/det-math';
+import {
+  applyAtmospheric,
+  CLEAR_DAY_ATMOSPHERE,
+  SUNSET_ATMOSPHERE,
+  FOG_ATMOSPHERE,
+  NIGHT_ATMOSPHERE,
+  type AtmosphereModel,
+} from '../artmath/perspective/atmospheric';
 
 export type Canvas = { width: number; height: number };
 
@@ -144,6 +152,18 @@ function silhouette(
   return pts;
 }
 
+/**
+ * Pick the atmosphere model that fits a Mood. Used by hillBand to
+ * apply Leonardo's aerial perspective without each backdrop having
+ * to know about atmospheric models.
+ */
+function atmosphereForMood(mood: string): AtmosphereModel {
+  if (mood === 'sunset' || mood === 'morning') return SUNSET_ATMOSPHERE;
+  if (mood === 'night') return NIGHT_ATMOSPHERE;
+  if (mood === 'snow') return FOG_ATMOSPHERE;
+  return CLEAR_DAY_ATMOSPHERE;
+}
+
 function hillBand(
   canvas: Canvas,
   baseY: number,
@@ -154,16 +174,32 @@ function hillBand(
   palette: Palette,
   noiseSeed: number,
   freq = 0.4,
+  /** Normalized 0..1 depth of this band (0 = foreground, 1 = far horizon).
+   *  When set, the fill/shadow colors are passed through Beer-Lambert
+   *  atmospheric extinction matching the palette's mood. Backdrops
+   *  composed by `drawBackdrop` pass this; legacy callers default to 0
+   *  for no-op behavior. */
+  depth = 0,
+  /** Atmosphere model. If omitted, derived from palette.mood implicitly
+   *  via a tagged-mood-key lookup. */
+  atmos?: AtmosphereModel,
 ): string {
+  // Apply atmospheric perspective to the band's colors.
+  // We don't have the mood here directly; the caller (drawBackdrop) passes
+  // depth, and the atmosphere is selected by the palette's stored mood.
+  const atmosphere = atmos ?? atmosphereForMood(palette.mood);
+  const fillC = depth > 0 ? applyAtmospheric(fillColor, depth, atmosphere) : fillColor;
+  const shadowC = depth > 0 ? applyAtmospheric(shadowColor, depth, atmosphere) : shadowColor;
+
   const top = silhouette(canvas, baseY, amp, 28, noiseSeed, freq);
   const poly: Pt[] = [...top, [canvas.width + 10, canvas.height + 10], [-10, canvas.height + 10]];
   let svg = '';
-  svg += watercolorWash(poly, rng, { color: fillColor, opacity: 0.7, bleed: 4, edge: 0.1 });
+  svg += watercolorWash(poly, rng, { color: fillC, opacity: 0.7, bleed: 4, edge: 0.1 });
   // shadow strip just under the silhouette
   const shadow: Pt[] = top.map(([x, y]) => [x, y + 14]);
   const shadowPoly: Pt[] = [...top, ...shadow.reverse()];
   svg += hatchFill(shadowPoly, rng, {
-    color: shadowColor,
+    color: shadowC,
     angle: 30,
     spacing: 4,
     opacity: 0.25,
@@ -627,7 +663,7 @@ export function drawBackdrop(
     case 'meadow-sunset': {
       const horizon = canvas.height * 0.55;
       svg += skyWash(canvas, palette, rng, horizon);
-      // distant hills
+      // distant hills (atmospheric extinction at depth=0.75)
       svg += hillBand(
         canvas,
         horizon + canvas.height * 0.05,
@@ -638,8 +674,9 @@ export function drawBackdrop(
         palette,
         seed ^ 1,
         0.35,
+        0.75,
       );
-      // mid hills
+      // mid hills (depth=0.4)
       svg += hillBand(
         canvas,
         horizon + canvas.height * 0.12,
@@ -650,8 +687,9 @@ export function drawBackdrop(
         palette,
         seed ^ 2,
         0.55,
+        0.4,
       );
-      // foreground grass
+      // foreground grass (depth=0.1)
       svg += hillBand(
         canvas,
         horizon + canvas.height * 0.22,
@@ -662,6 +700,7 @@ export function drawBackdrop(
         palette,
         seed ^ 3,
         0.8,
+        0.1,
       );
       // tufts
       svg += grassTufts(canvas, canvas.height - 8, 70, rng, palette);
@@ -681,6 +720,7 @@ export function drawBackdrop(
         palette,
         seed ^ 11,
         0.4,
+        0.6,
       );
       svg += hillBand(
         canvas,
@@ -692,6 +732,7 @@ export function drawBackdrop(
         palette,
         seed ^ 12,
         0.6,
+        0.25,
       );
       svg += grassTufts(canvas, canvas.height - 8, 60, rng, palette);
       break;
@@ -715,6 +756,7 @@ export function drawBackdrop(
         palette,
         seed ^ 21,
         0.7,
+        0.15,
       );
       svg += grassTufts(canvas, canvas.height - 8, 60, rng, palette);
       break;
@@ -769,6 +811,7 @@ export function drawBackdrop(
         palette,
         seed ^ 31,
         0.4,
+        0.65,
       );
       // water
       const waterTop = horizon + canvas.height * 0.06;
@@ -804,20 +847,20 @@ export function drawBackdrop(
       // sparse snowflakes drifting, optional pine trees on the horizon.
       const horizon = canvas.height * 0.5;
       svg += skyWash(canvas, palette, rng, horizon);
-      // Far snowy mountains (very pale)
+      // Far snowy mountains (very pale, atmospheric extinction d=0.8)
       svg += hillBand(
         canvas, horizon + canvas.height * 0.02, canvas.height * 0.08,
-        '#e7edf2', '#bcc5cf', rng, palette, seed ^ 41, 0.35,
+        '#e7edf2', '#bcc5cf', rng, palette, seed ^ 41, 0.35, 0.8,
       );
-      // Mid snow hills (lighter)
+      // Mid snow hills (d=0.35)
       svg += hillBand(
         canvas, horizon + canvas.height * 0.18, canvas.height * 0.06,
-        '#f0f3f6', '#cbd5dc', rng, palette, seed ^ 42, 0.55,
+        '#f0f3f6', '#cbd5dc', rng, palette, seed ^ 42, 0.55, 0.35,
       );
-      // Foreground snow (almost white)
+      // Foreground snow (almost no atmospheric, d=0.05)
       svg += hillBand(
         canvas, horizon + canvas.height * 0.32, canvas.height * 0.04,
-        '#f8f9fb', '#d0dae0', rng, palette, seed ^ 43, 0.75,
+        '#f8f9fb', '#d0dae0', rng, palette, seed ^ 43, 0.75, 0.05,
       );
       // Sparse pine trees on the mid hill
       for (let i = 0; i < 3; i++) {
@@ -853,10 +896,10 @@ export function drawBackdrop(
       const skyHorizon = canvas.height * 0.4;
       const waterHorizon = canvas.height * 0.6;
       svg += skyWash(canvas, palette, rng, skyHorizon);
-      // Distant land/shore strip (very thin)
+      // Distant land/shore strip (very far — atmospheric extinction d=0.85)
       svg += hillBand(
         canvas, skyHorizon + canvas.height * 0.005, canvas.height * 0.02,
-        '#a3b8a8', '#7a9286', rng, palette, seed ^ 51, 0.3,
+        '#a3b8a8', '#7a9286', rng, palette, seed ^ 51, 0.3, 0.85,
       );
       // Water band
       svg += `<rect x="0" y="${fmt2(skyHorizon)}" width="${canvas.width}" height="${fmt2(waterHorizon - skyHorizon)}" fill="#8fb0b8" opacity="0.78"/>`;
@@ -935,10 +978,10 @@ export function drawBackdrop(
           color: palette.ink, width: 0.8, closed: true, wobble: 0.4, overshoot: 0, passes: 1,
         });
       }
-      // Foreground rocky band
+      // Foreground rocky band (d=0.1 — near foreground)
       svg += hillBand(
         canvas, horizon + canvas.height * 0.1, canvas.height * 0.04,
-        palette.hill, palette.hillShadow, rng, palette, seed ^ 61, 0.7,
+        palette.hill, palette.hillShadow, rng, palette, seed ^ 61, 0.7, 0.1,
       );
       svg += grassTufts(canvas, canvas.height - 8, 30, rng, palette);
       break;

@@ -16,6 +16,7 @@ import type { Palette } from '../palette';
 import { watercolorWash, darken, lighten } from '../watercolor';
 import { fmt2 } from '../math/det-format';
 import { dSin, dCos } from '../math/det-math';
+import { sargentCoupledColor } from '../../artmath/color/sargent-coupling';
 
 export function drawFox(
   c: Character,
@@ -49,6 +50,12 @@ export function drawFox(
   // ── Body ─────────────────────────────────────────────────────────
   const bodyPoly = ovalPoly(bodyCx, bodyCy, bodyW * 0.5, bodyH * 0.5, 22, r, 0.07);
   svg += watercolorWash(bodyPoly, r, { color: c.furColor, opacity: 0.62, bleed: 5 });
+  // Sargent shadow wash on lower-right
+  const foxShadowColor = sargentCoupledColor(c.furColor, -0.18, 0.7);
+  const foxShadowPoly = bodyPoly.map(
+    ([x, y]) => [x + bodyW * 0.12, y + bodyH * 0.12] as Pt,
+  );
+  svg += watercolorWash(foxShadowPoly, r, { color: foxShadowColor, opacity: 0.35, bleed: 3, edge: 0.05 });
   // White belly + chest patch
   const belly = ovalPoly(bodyCx, bodyCy + bodyH * 0.18, bodyW * 0.32, bodyH * 0.4, 16, r, 0.06);
   svg += watercolorWash(belly, r, { color: c.bellyColor, opacity: 0.85, bleed: 3, edge: 0.1 });

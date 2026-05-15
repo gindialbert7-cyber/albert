@@ -16,6 +16,7 @@ import type { Palette } from '../palette';
 import { watercolorWash, darken, lighten } from '../watercolor';
 import { fmt2 } from '../math/det-format';
 import { dSin, dCos } from '../math/det-math';
+import { sargentCoupledColor } from '../../artmath/color/sargent-coupling';
 
 export function drawMouse(
   c: Character,
@@ -49,6 +50,12 @@ export function drawMouse(
   // ── Body ─────────────────────────────────────────────────────────
   const bodyPoly = ovalPoly(bodyCx, bodyCy, bodyW * 0.5, bodyH * 0.5, 20, r, 0.06);
   svg += watercolorWash(bodyPoly, r, { color: c.furColor, opacity: 0.65, bleed: 4 });
+  // Sargent shadow wash on lower-right
+  const mouseShadowColor = sargentCoupledColor(c.furColor, -0.16, 0.7);
+  const mouseShadowPoly = bodyPoly.map(
+    ([x, y]) => [x + bodyW * 0.1, y + bodyH * 0.1] as Pt,
+  );
+  svg += watercolorWash(mouseShadowPoly, r, { color: mouseShadowColor, opacity: 0.32, bleed: 2, edge: 0.05 });
   const belly = ovalPoly(bodyCx, bodyCy + bodyH * 0.16, bodyW * 0.3, bodyH * 0.32, 14, r, 0.06);
   svg += watercolorWash(belly, r, { color: c.bellyColor, opacity: 0.82, bleed: 2, edge: 0.1 });
   svg += handStroke(bodyPoly, r, { color: palette.ink, width: 1.2, closed: true, overshoot: 0, wobble: 0.5 });

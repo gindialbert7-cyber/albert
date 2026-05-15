@@ -18,6 +18,7 @@ import { Palette } from '../palette';
 import { watercolorWash, darken, lighten } from '../watercolor';
 import { fmt2 } from '../math/det-format';
 import { dSin, dCos } from '../math/det-math';
+import { sargentCoupledColor } from '../../artmath/color/sargent-coupling';
 
 export function drawRabbit(
   c: Character,
@@ -60,6 +61,16 @@ export function drawRabbit(
     /*irreg=*/ 0.07,
   );
   svg += watercolorWash(bodyPoly, r, { color: c.furColor, opacity: 0.55, bleed: 5 });
+  // Sargent-coupled shadow wash on the lower-right side. Same body
+  // polygon, slightly offset, with cool-shadow hue (α=0.7, ΔV=-0.18).
+  const shadowOffsetX = bodyW * 0.12;
+  const shadowOffsetY = bodyH * 0.12;
+  const shadowColor = sargentCoupledColor(c.furColor, -0.18, 0.7);
+  const shadowPoly = bodyPoly.map(
+    ([x, y]) => [x + shadowOffsetX, y + shadowOffsetY] as Pt,
+  );
+  svg += watercolorWash(shadowPoly, r, { color: shadowColor, opacity: 0.35, bleed: 3, edge: 0.05 });
+
   // belly patch — slight oval, lighter color, on lower-front
   const bellyPoly = blob(
     bodyCx,

@@ -18,6 +18,7 @@ import type { Palette } from '../palette';
 import { watercolorWash, darken, lighten } from '../watercolor';
 import { fmt2 } from '../math/det-format';
 import { dSin, dCos } from '../math/det-math';
+import { sargentCoupledColor } from '../../artmath/color/sargent-coupling';
 
 export function drawOwl(
   c: Character,
@@ -51,6 +52,12 @@ export function drawOwl(
   // ── Body — egg-shaped (taller bottom, narrower top) ──────────────
   const bodyPoly = eggPoly(bodyCx, bodyCy, bodyW * 0.5, bodyH * 0.5, 22, r, 0.06);
   svg += watercolorWash(bodyPoly, r, { color: c.furColor, opacity: 0.6, bleed: 5 });
+  // Sargent shadow wash on lower-right
+  const owlShadowColor = sargentCoupledColor(c.furColor, -0.18, 0.7);
+  const owlShadowPoly = bodyPoly.map(
+    ([x, y]) => [x + bodyW * 0.12, y + bodyH * 0.12] as Pt,
+  );
+  svg += watercolorWash(owlShadowPoly, r, { color: owlShadowColor, opacity: 0.35, bleed: 3, edge: 0.05 });
   // Belly patch — lighter, central
   const bellyPoly = ovalPoly(
     bodyCx,
