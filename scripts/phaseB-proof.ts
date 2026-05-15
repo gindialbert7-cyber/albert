@@ -44,22 +44,19 @@ function header(text: string, sub: string, y: number): string {
 
 // ─── 1. Wallpaper groups ───────────────────────────────────────────────
 {
-  const W = 1200;
-  const H = 900;
+  const W = 1400;
+  const H = 1100;
   let body = `<rect width="${W}" height="${H}" fill="#fbf7ec"/>`;
   body += header(
-    '1. Wallpaper groups — 5 of the 17 plane-symmetry tilings',
-    'Same primitive tile (asymmetric leaf-blob) repeated under each group\'s operations. Notice how lattice, rotations, and mirrors transform the same shape.',
+    '1. Wallpaper groups — all 17 plane-symmetry tilings (Fedorov 1891)',
+    'Same primitive tile (asymmetric leaf-blob) repeated under each group\'s operations. The 17 groups partition every periodic 2D pattern in human history.',
     40,
   );
 
-  // The drawer paints an asymmetric leaf-blob to make the group symmetry
-  // obvious by contrast.
   const leafDrawer: TileDrawer = (rng, size) => {
     const c1 = `hsl(${Math.floor(rng() * 30 + 130)} 32% 38%)`;
     const c2 = `hsl(${Math.floor(rng() * 20 + 25)} 45% 50%)`;
     const r = size * 0.32;
-    // Asymmetric petal: ellipse off-center + small triangle stem
     return (
       `<ellipse cx="${fmt2(size * 0.55)}" cy="${fmt2(size * 0.45)}" rx="${fmt2(r)}" ry="${fmt2(r * 0.6)}" fill="${c1}" transform="rotate(-22 ${fmt2(size * 0.55)} ${fmt2(size * 0.45)})"/>` +
       `<polygon points="${fmt2(size * 0.4)},${fmt2(size * 0.75)} ${fmt2(size * 0.5)},${fmt2(size * 0.45)} ${fmt2(size * 0.6)},${fmt2(size * 0.75)}" fill="${c2}" opacity="0.85"/>` +
@@ -67,29 +64,29 @@ function header(text: string, sub: string, y: number): string {
     );
   };
 
-  const cellW = 360;
-  const cellH = 360;
-  const cols = 3;
+  const cellW = 200;
+  const cellH = 200;
+  const cols = 6;
   for (let i = 0; i < IMPLEMENTED_GROUPS.length; i++) {
     const g = IMPLEMENTED_GROUPS[i];
     const col = i % cols;
     const row = Math.floor(i / cols);
     const x0 = 40 + col * (cellW + 20);
-    const y0 = 100 + row * (cellH + 60);
+    const y0 = 100 + row * (cellH + 50);
     const inner = wallpaperPattern(leafDrawer, {
       group: g as WallpaperGroup,
       canvasW: cellW,
       canvasH: cellH,
-      tileSize: 60,
+      tileSize: 36,
       seed: 0xa770,
     });
     body += `<g transform="translate(${x0} ${y0})">`;
     body += `<rect width="${cellW}" height="${cellH}" fill="#fdfaf2"/>`;
     body += `<clipPath id="clip-${g}"><rect width="${cellW}" height="${cellH}"/></clipPath>`;
     body += `<g clip-path="url(#clip-${g})">${inner}</g>`;
-    body += `<rect width="${cellW}" height="${cellH}" fill="none" stroke="#39312a" stroke-width="0.8"/>`;
+    body += `<rect width="${cellW}" height="${cellH}" fill="none" stroke="#39312a" stroke-width="0.6"/>`;
     body += `</g>`;
-    body += `<text x="${x0 + cellW / 2}" y="${y0 + cellH + 24}" text-anchor="middle" font-family="monospace" font-size="13" fill="#39312a">${g}</text>`;
+    body += `<text x="${x0 + cellW / 2}" y="${y0 + cellH + 18}" text-anchor="middle" font-family="monospace" font-size="12" fill="#39312a">${g}</text>`;
   }
 
   fs.writeFileSync(

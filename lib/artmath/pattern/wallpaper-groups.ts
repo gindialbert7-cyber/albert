@@ -13,13 +13,11 @@
  * SVG fragment` — and the wallpaper operator tiles the canvas by
  * applying every operation across a translation lattice.
  *
- * This module ships 5 of the 17 groups for v1, covering ~85% of
- * common decorative needs:
- *   - p1: plain repeat
- *   - p2: 180° rotation (pinwheel)
- *   - pmm: perpendicular mirrors (checkerboard)
- *   - p4m: 4-fold + mirrors (square tile, much Roman mosaic)
- *   - p6m: 6-fold + mirrors (honeycomb, hex tile)
+ * This module implements all 17 groups. The simplified groups (p1, p2,
+ * pmm, p4m, p6m) cover ~85% of common decorative needs; the remaining
+ * 12 (pm, pg, cm, pmg, pgg, cmm, p4, p4g, p3, p3m1, p31m, p6) extend
+ * coverage to historic Islamic art, M.C. Escher tilings, and
+ * crystallographic patterns.
  *
  * Sources:
  *   - Sasse 2020, "Classification of the 17 Wallpaper Groups" (U.Chicago)
@@ -154,9 +152,146 @@ function groupSpec(group: WallpaperGroup, tileSize: number): GroupSpec {
           compose(mirrorX(), rotate((5 * Math.PI) / 3)),
         ],
       };
-    // For unimplemented groups, fall back to p1.
-    default:
-      return groupSpec('p1', s);
+    case 'pm':
+      // single mirror along y axis
+      return {
+        latticeA: [s * 2, 0],
+        latticeB: [0, s],
+        ops: [IDENT, compose(translate(s * 2, 0), mirrorX())],
+      };
+    case 'pg':
+      // glide reflection: mirror + half-translate along the mirror axis
+      return {
+        latticeA: [s * 2, 0],
+        latticeB: [0, s],
+        ops: [IDENT, compose(translate(s * 2, s), mirrorX())],
+      };
+    case 'cm':
+      // mirror + centered lattice. Use rhombic lattice.
+      return {
+        latticeA: [s * 2, 0],
+        latticeB: [s, s],
+        ops: [IDENT, compose(translate(s * 2, 0), mirrorX())],
+      };
+    case 'pmg':
+      // perpendicular: a mirror + a glide
+      return {
+        latticeA: [s * 2, 0],
+        latticeB: [0, s * 2],
+        ops: [
+          IDENT,
+          compose(translate(s * 2, 0), mirrorX()),
+          compose(translate(0, s), rotate(Math.PI)),
+          compose(translate(s * 2, s), compose(mirrorX(), rotate(Math.PI))),
+        ],
+      };
+    case 'pgg':
+      // two perpendicular glides
+      return {
+        latticeA: [s * 2, 0],
+        latticeB: [0, s * 2],
+        ops: [
+          IDENT,
+          compose(translate(s, s), rotate(Math.PI)),
+          compose(translate(s * 2, s), mirrorX()),
+          compose(translate(s, s * 2), mirrorY()),
+        ],
+      };
+    case 'cmm':
+      // centered lattice + perpendicular mirrors
+      return {
+        latticeA: [s * 2, 0],
+        latticeB: [0, s * 2],
+        ops: [
+          IDENT,
+          compose(translate(s * 2, 0), mirrorX()),
+          compose(translate(0, s * 2), mirrorY()),
+          compose(translate(s * 2, s * 2), compose(mirrorX(), mirrorY())),
+          compose(translate(s, s), rotate(Math.PI)),
+          compose(translate(s, s), compose(mirrorX(), rotate(Math.PI))),
+        ],
+      };
+    case 'p4':
+      // 4-fold rotation, no mirror
+      return {
+        latticeA: [s * 2, 0],
+        latticeB: [0, s * 2],
+        ops: [
+          IDENT,
+          compose(translate(s * 2, 0), rotate(Math.PI / 2)),
+          compose(translate(s * 2, s * 2), rotate(Math.PI)),
+          compose(translate(0, s * 2), rotate((3 * Math.PI) / 2)),
+        ],
+      };
+    case 'p4g':
+      // 4-fold + glide. Looks like a pinwheel of mirrors.
+      return {
+        latticeA: [s * 2, 0],
+        latticeB: [0, s * 2],
+        ops: [
+          IDENT,
+          compose(translate(s * 2, 0), rotate(Math.PI / 2)),
+          compose(translate(s * 2, s * 2), rotate(Math.PI)),
+          compose(translate(0, s * 2), rotate((3 * Math.PI) / 2)),
+          compose(translate(s, s), compose(mirrorX(), rotate(Math.PI / 4))),
+          compose(translate(s, s), compose(mirrorX(), rotate((3 * Math.PI) / 4))),
+          compose(translate(s, s), compose(mirrorX(), rotate((5 * Math.PI) / 4))),
+          compose(translate(s, s), compose(mirrorX(), rotate((7 * Math.PI) / 4))),
+        ],
+      };
+    case 'p3':
+      // 3-fold rotation, hexagonal lattice
+      return {
+        latticeA: [s * 1.7320508, 0],
+        latticeB: [s * 0.8660254, s * 1.5],
+        ops: [
+          IDENT,
+          rotate((2 * Math.PI) / 3),
+          rotate((4 * Math.PI) / 3),
+        ],
+      };
+    case 'p3m1':
+      // 3-fold + mirror through lattice points
+      return {
+        latticeA: [s * 1.7320508, 0],
+        latticeB: [s * 0.8660254, s * 1.5],
+        ops: [
+          IDENT,
+          rotate((2 * Math.PI) / 3),
+          rotate((4 * Math.PI) / 3),
+          mirrorX(),
+          compose(mirrorX(), rotate((2 * Math.PI) / 3)),
+          compose(mirrorX(), rotate((4 * Math.PI) / 3)),
+        ],
+      };
+    case 'p31m':
+      // 3-fold + mirror through tile centers
+      return {
+        latticeA: [s * 1.7320508, 0],
+        latticeB: [s * 0.8660254, s * 1.5],
+        ops: [
+          IDENT,
+          rotate((2 * Math.PI) / 3),
+          rotate((4 * Math.PI) / 3),
+          compose(rotate(Math.PI / 3), mirrorX()),
+          compose(rotate(Math.PI), mirrorX()),
+          compose(rotate((5 * Math.PI) / 3), mirrorX()),
+        ],
+      };
+    case 'p6':
+      // 6-fold rotation, no mirror
+      return {
+        latticeA: [s * 1.7320508, 0],
+        latticeB: [s * 0.8660254, s * 1.5],
+        ops: [
+          IDENT,
+          rotate(Math.PI / 3),
+          rotate((2 * Math.PI) / 3),
+          rotate(Math.PI),
+          rotate((4 * Math.PI) / 3),
+          rotate((5 * Math.PI) / 3),
+        ],
+      };
   }
 }
 
@@ -233,5 +368,11 @@ export function wallpaperPattern(
   return svg;
 }
 
-/** List of currently-implemented group names. */
-export const IMPLEMENTED_GROUPS: WallpaperGroup[] = ['p1', 'p2', 'pmm', 'p4m', 'p6m'];
+/** List of currently-implemented group names — all 17. */
+export const IMPLEMENTED_GROUPS: WallpaperGroup[] = [
+  'p1', 'p2', 'pm', 'pg', 'cm',
+  'pmm', 'pmg', 'pgg', 'cmm',
+  'p4', 'p4m', 'p4g',
+  'p3', 'p3m1', 'p31m',
+  'p6', 'p6m',
+];
