@@ -215,6 +215,61 @@ const SCENE_TEMPLATES: SceneTemplate[] = [
     }),
   },
   {
+    id: 'snowy-hill',
+    description: 'a snowy hill with pine trees',
+    backdrop: 'snow-hills',
+    mood: 'snow',
+    buildPage: (id, caption, cid, pose) => ({
+      id, caption, backdrop: 'snow-hills', mood: 'snow',
+      background: [
+        { kind: 'cloud', x: 200, y: 90, w: 70, z: 1 },
+        { kind: 'bird', x: 540, y: 130, scale: 0.85, z: 3 },
+      ],
+      characters: [{ characterId: cid, pose, placement: { x: 400, y: 540, scale: 1.0 } }],
+      foreground: [
+        { kind: 'builtin', name: 'present', x: 580, y: 555, scale: 0.85 },
+      ],
+    }),
+  },
+  {
+    id: 'sunny-beach',
+    description: 'a sunny beach by the sea',
+    backdrop: 'beach',
+    mood: 'day',
+    buildPage: (id, caption, cid, pose) => ({
+      id, caption, backdrop: 'beach', mood: 'day',
+      background: [
+        { kind: 'sun', x: 660, y: 110, r: 32, rays: true, z: 0 },
+        { kind: 'cloud', x: 200, y: 90, w: 70, z: 1 },
+        { kind: 'builtin', name: 'sailboat', x: 600, y: 250, scale: 1.0, z: 2 },
+      ],
+      characters: [{ characterId: cid, pose, placement: { x: 350, y: 540, scale: 1.0 } }],
+      foreground: [
+        { kind: 'builtin', name: 'umbrella', x: 580, y: 540, scale: 0.9 },
+        { kind: 'builtin', name: 'ball', x: 200, y: 555, scale: 0.85 },
+      ],
+    }),
+  },
+  {
+    id: 'mountain-vista',
+    description: 'a dramatic mountain vista with snow caps',
+    backdrop: 'mountain-peak',
+    mood: 'day',
+    buildPage: (id, caption, cid, pose) => ({
+      id, caption, backdrop: 'mountain-peak', mood: 'day',
+      background: [
+        { kind: 'cloud', x: 200, y: 70, w: 80, z: 1 },
+        { kind: 'cloud', x: 550, y: 130, w: 60, z: 1 },
+        { kind: 'bird', x: 480, y: 150, scale: 0.85, z: 3 },
+      ],
+      characters: [{ characterId: cid, pose, placement: { x: 400, y: 540, scale: 1.0 } }],
+      foreground: [
+        { kind: 'flower', x: 180, y: 565, scale: 0.85 },
+        { kind: 'flower', x: 620, y: 568, scale: 0.85 },
+      ],
+    }),
+  },
+  {
     id: 'celebration',
     description: 'a celebration with cake, balloons, and a present',
     backdrop: 'meadow',

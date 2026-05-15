@@ -57,6 +57,9 @@ export async function buildSuite(): Promise<SuiteEntry[]> {
     'forest-clearing',
     'burrow-interior',
     'pond',
+    'snow-hills',
+    'beach',
+    'mountain-peak',
   ];
   const MOODS: P['mood'][] = ['day', 'sunset', 'night', 'morning', 'snow', 'forest'];
 

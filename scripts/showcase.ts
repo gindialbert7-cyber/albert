@@ -174,6 +174,7 @@ y += 30;
 
 const bdW = 270;
 const bdH = 200;
+// Show 9 backdrops in 3 rows × 3 cols (was 6 in 1 row × 6)
 const backdrops: Array<{ id: Page['backdrop']; mood: Page['mood']; name: string }> = [
   { id: 'meadow', mood: 'day', name: 'meadow / day' },
   { id: 'meadow-sunset', mood: 'sunset', name: 'meadow-sunset' },
@@ -181,13 +182,18 @@ const backdrops: Array<{ id: Page['backdrop']; mood: Page['mood']; name: string 
   { id: 'forest-clearing', mood: 'forest', name: 'forest-clearing' },
   { id: 'burrow-interior', mood: 'day', name: 'burrow-interior' },
   { id: 'pond', mood: 'day', name: 'pond' },
+  { id: 'snow-hills', mood: 'snow', name: 'snow-hills' },
+  { id: 'beach', mood: 'day', name: 'beach' },
+  { id: 'mountain-peak', mood: 'day', name: 'mountain-peak' },
 ];
 const bdArtist = seedArtist('showcase-bd', { anchor: 'pip' });
+const bdCols = 6;
 for (let i = 0; i < backdrops.length; i++) {
   const b = backdrops[i];
-  const col = i % 6;
+  const col = i % bdCols;
+  const row = Math.floor(i / bdCols);
   const x0 = 40 + col * (bdW + 8);
-  const y0 = y;
+  const y0 = y + row * (bdH + 30);
   const page: Page = {
     id: 'bd-' + b.id + '-' + b.mood,
     backdrop: b.id,
@@ -200,7 +206,7 @@ for (let i = 0; i < backdrops.length; i++) {
   body += `<rect x="${x0}" y="${y0}" width="${bdW}" height="${bdH}" fill="none" stroke="#39312a" stroke-width="0.5"/>`;
   body += text(x0 + bdW / 2, y0 + bdH + 18, b.name, 11, '#39312a', 'middle');
 }
-y += bdH + 50;
+y += 2 * (bdH + 30) + 30;
 
 // ─── Section 5: living-line property demo ─────────────────────────────
 body += text(40, y, '5. The "living line" — 12 properties per stroke', 24);

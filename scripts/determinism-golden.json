@@ -150,5 +150,77 @@
   {
     "name": "page-35-pond-forest",
     "sha256": "9f7c386dbd4f1af5e2f8ee08d4f0244d16aeb4260fe2eb7136dd3393c2116754"
+  },
+  {
+    "name": "page-36-snow-hills-day",
+    "sha256": "1b0d2c173ebdbd4b06e0488fb84340505edbdd037193b73e6ac3c3ef125f009d"
+  },
+  {
+    "name": "page-37-snow-hills-sunset",
+    "sha256": "6e951906c6d4467caa51d3379be2d12cad75287dea5b8d1dabf96e557b5fb7a2"
+  },
+  {
+    "name": "page-38-snow-hills-night",
+    "sha256": "5ab05e9477dddb09689c19522e1c87f5280b229ad282809a302ccc11ccc4f9ab"
+  },
+  {
+    "name": "page-39-snow-hills-morning",
+    "sha256": "520692b235ec205f83be1463c5cc506fe7dc9b9784386a137fbbcd60feeb9c69"
+  },
+  {
+    "name": "page-40-snow-hills-snow",
+    "sha256": "786b0f4dd05eb9a6651a17fa615318e8b1184a430a55c2920dea632cc30a4829"
+  },
+  {
+    "name": "page-41-snow-hills-forest",
+    "sha256": "e84633a907ebef28ac4f601afe53e53df1a6113356c0aaaf39339493a54f1e79"
+  },
+  {
+    "name": "page-42-beach-day",
+    "sha256": "9b0fbb2f5a861407665da6789da8533c6a0cbe563aa17ce4fd2d272622dbdcab"
+  },
+  {
+    "name": "page-43-beach-sunset",
+    "sha256": "5011d3ee60cd4fbf495edba128979d79f3dbce704a53430fb3b7d8e7fb701c17"
+  },
+  {
+    "name": "page-44-beach-night",
+    "sha256": "ff85adf8544bfcee56b7e40d8eebb1c54f123666cc720c07fa8875e694665224"
+  },
+  {
+    "name": "page-45-beach-morning",
+    "sha256": "9f7acd15c5446e0bd1fe7d6a666e0d99c2e39997ed0e5bd6dafc537d3fd5e76d"
+  },
+  {
+    "name": "page-46-beach-snow",
+    "sha256": "b35672b2c203e04229cbd3352976e9cb55740cf5494d770bfccb79d08111625f"
+  },
+  {
+    "name": "page-47-beach-forest",
+    "sha256": "ee96e33ef936cc5e10a21c3c88f348b07f65945ede18c9316251a7ea6f0bde26"
+  },
+  {
+    "name": "page-48-mountain-peak-day",
+    "sha256": "f2042383936c9f388766d1401fde8853151bd36e413d8ff7bddd909b37603a94"
+  },
+  {
+    "name": "page-49-mountain-peak-sunset",
+    "sha256": "9091d115fe9262ef349beb53236b088e298e91758281b1e9acfd786976f70f29"
+  },
+  {
+    "name": "page-50-mountain-peak-night",
+    "sha256": "43405df514d19ae6822668eb666788e15461172c82adefd15a19802513d030c1"
+  },
+  {
+    "name": "page-51-mountain-peak-morning",
+    "sha256": "5e1b13322478859c4dd12f4c5fc4ac5c7720804a21d0bf518a36acc469ecaba2"
+  },
+  {
+    "name": "page-52-mountain-peak-snow",
+    "sha256": "8ef984f7e898cdd05d4dac4ea7b4509a1e130d1af162399c6eb0d07a57c8c24d"
+  },
+  {
+    "name": "page-53-mountain-peak-forest",
+    "sha256": "8e8d31c8f920115b344604da8e4d1e7cd80bc9daf3aa645f9e155cfb755f9992"
   }
 ]

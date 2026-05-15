@@ -22,7 +22,10 @@ export type BackdropKind =
   | 'night-sky'
   | 'forest-clearing'
   | 'burrow-interior'
-  | 'pond';
+  | 'pond'
+  | 'snow-hills'
+  | 'beach'
+  | 'mountain-peak';
 
 // ─── paper texture ───────────────────────────────────────────────────────────
 
@@ -760,6 +763,150 @@ export function drawBackdrop(
         );
       }
       svg += grassTufts(canvas, waterTop - 2, 30, rng, palette);
+      break;
+    }
+    case 'snow-hills': {
+      // Snow scene: cool pale sky, white-with-blue-shadow hills,
+      // sparse snowflakes drifting, optional pine trees on the horizon.
+      const horizon = canvas.height * 0.5;
+      svg += skyWash(canvas, palette, rng, horizon);
+      // Far snowy mountains (very pale)
+      svg += hillBand(
+        canvas, horizon + canvas.height * 0.02, canvas.height * 0.08,
+        '#e7edf2', '#bcc5cf', rng, palette, seed ^ 41, 0.35,
+      );
+      // Mid snow hills (lighter)
+      svg += hillBand(
+        canvas, horizon + canvas.height * 0.18, canvas.height * 0.06,
+        '#f0f3f6', '#cbd5dc', rng, palette, seed ^ 42, 0.55,
+      );
+      // Foreground snow (almost white)
+      svg += hillBand(
+        canvas, horizon + canvas.height * 0.32, canvas.height * 0.04,
+        '#f8f9fb', '#d0dae0', rng, palette, seed ^ 43, 0.75,
+      );
+      // Sparse pine trees on the mid hill
+      for (let i = 0; i < 3; i++) {
+        const tx = range(rng, canvas.width * 0.05, canvas.width * 0.95);
+        const ty = horizon + canvas.height * 0.18;
+        const th = range(rng, 35, 55);
+        // Triangle pine
+        const pine: Pt[] = [
+          [tx, ty - th],
+          [tx + th * 0.4, ty],
+          [tx - th * 0.4, ty],
+        ];
+        svg += watercolorWash(pine, rng, { color: '#4f6e60', opacity: 0.75, bleed: 1 });
+        svg += handStroke(pine, rng, {
+          color: palette.ink, width: 1.0, closed: true, wobble: 0.4, overshoot: 0, passes: 1,
+        });
+        // tiny trunk
+        svg += `<rect x="${fmt2(tx - 1.2)}" y="${fmt2(ty)}" width="2.5" height="${fmt2(5)}" fill="#5a4632" stroke="${palette.ink}" stroke-width="0.4"/>`;
+      }
+      // Drifting snowflakes
+      const flakeCount = 35;
+      for (let i = 0; i < flakeCount; i++) {
+        const fx = rng() * canvas.width;
+        const fy = rng() * horizon * 1.1;
+        const fs = range(rng, 1.2, 2.4);
+        svg += `<circle cx="${fmt2(fx)}" cy="${fmt2(fy)}" r="${fmt2(fs)}" fill="#ffffff" opacity="${fmt2(range(rng, 0.65, 0.92))}"/>`;
+      }
+      break;
+    }
+    case 'beach': {
+      // Beach: warm sky with a soft horizon over teal water,
+      // sandy foreground with ripple lines.
+      const skyHorizon = canvas.height * 0.4;
+      const waterHorizon = canvas.height * 0.6;
+      svg += skyWash(canvas, palette, rng, skyHorizon);
+      // Distant land/shore strip (very thin)
+      svg += hillBand(
+        canvas, skyHorizon + canvas.height * 0.005, canvas.height * 0.02,
+        '#a3b8a8', '#7a9286', rng, palette, seed ^ 51, 0.3,
+      );
+      // Water band
+      svg += `<rect x="0" y="${fmt2(skyHorizon)}" width="${canvas.width}" height="${fmt2(waterHorizon - skyHorizon)}" fill="#8fb0b8" opacity="0.78"/>`;
+      // Water ripples / wave lines
+      for (let i = 0; i < 7; i++) {
+        const y = skyHorizon + range(rng, 6, waterHorizon - skyHorizon - 6);
+        const x = rng() * canvas.width;
+        const w = range(rng, 40, 110);
+        svg += handStroke(
+          [[x - w / 2, y], [x + w / 2, y]],
+          rng,
+          { color: '#5d7e88', width: 1.2, wobble: 0.7, overshoot: 0, passes: 1, opacity: 0.55 },
+        );
+      }
+      // White foam line along waterline (the wave-meets-sand)
+      svg += `<rect x="0" y="${fmt2(waterHorizon - 3)}" width="${canvas.width}" height="6" fill="#fbf5e9" opacity="0.85"/>`;
+      // Sandy foreground
+      svg += `<rect x="0" y="${fmt2(waterHorizon)}" width="${canvas.width}" height="${fmt2(canvas.height - waterHorizon)}" fill="#e6d4a8" opacity="0.95"/>`;
+      // Sand ripples (slight horizontal lines)
+      for (let i = 0; i < 6; i++) {
+        const y = waterHorizon + range(rng, 15, canvas.height - waterHorizon - 10);
+        const x = rng() * canvas.width;
+        const w = range(rng, 60, 180);
+        svg += handStroke(
+          [[x - w / 2, y], [x + w / 2, y]],
+          rng,
+          { color: '#c4ad7e', width: 0.9, wobble: 0.4, overshoot: 0, passes: 1, opacity: 0.5 },
+        );
+      }
+      // Sand grain texture (small dots)
+      for (let i = 0; i < 60; i++) {
+        const x = rng() * canvas.width;
+        const y = waterHorizon + rng() * (canvas.height - waterHorizon);
+        svg += `<circle cx="${fmt2(x)}" cy="${fmt2(y)}" r="${fmt2(range(rng, 0.5, 1.4))}" fill="#a89060" opacity="${fmt2(range(rng, 0.15, 0.4))}"/>`;
+      }
+      break;
+    }
+    case 'mountain-peak': {
+      // Tall dramatic mountain peaks with snow caps.
+      const horizon = canvas.height * 0.7;
+      svg += skyWash(canvas, palette, rng, horizon);
+      // Three distinct peaks
+      const peaks = [
+        { x: canvas.width * 0.2, h: canvas.height * 0.55, w: canvas.width * 0.25 },
+        { x: canvas.width * 0.5, h: canvas.height * 0.65, w: canvas.width * 0.3 },
+        { x: canvas.width * 0.78, h: canvas.height * 0.5, w: canvas.width * 0.22 },
+      ];
+      for (let i = 0; i < peaks.length; i++) {
+        const p = peaks[i];
+        const peakTopY = horizon - p.h;
+        const baseY = horizon + canvas.height * 0.05;
+        const peakPoly: Pt[] = [
+          [p.x - p.w / 2, baseY],
+          [p.x - p.w * 0.12, peakTopY + p.h * 0.15],
+          [p.x, peakTopY],
+          [p.x + p.w * 0.18, peakTopY + p.h * 0.1],
+          [p.x + p.w / 2, baseY],
+        ];
+        svg += watercolorWash(peakPoly, rng, {
+          color: i === 1 ? palette.mountainNear : palette.mountainFar,
+          opacity: 0.75, bleed: 4,
+        });
+        svg += handStroke(peakPoly, rng, {
+          color: palette.ink, width: 1.1, closed: true, wobble: 0.5, overshoot: 0,
+        });
+        // Snow cap on top portion of peak
+        const snowCap: Pt[] = [
+          [p.x - p.w * 0.13, peakTopY + p.h * 0.16],
+          [p.x, peakTopY],
+          [p.x + p.w * 0.18, peakTopY + p.h * 0.11],
+          [p.x + p.w * 0.1, peakTopY + p.h * 0.22],
+          [p.x - p.w * 0.06, peakTopY + p.h * 0.2],
+        ];
+        svg += watercolorWash(snowCap, rng, { color: '#fbf5e9', opacity: 0.85, bleed: 1.5 });
+        svg += handStroke(snowCap, rng, {
+          color: palette.ink, width: 0.8, closed: true, wobble: 0.4, overshoot: 0, passes: 1,
+        });
+      }
+      // Foreground rocky band
+      svg += hillBand(
+        canvas, horizon + canvas.height * 0.1, canvas.height * 0.04,
+        palette.hill, palette.hillShadow, rng, palette, seed ^ 61, 0.7,
+      );
+      svg += grassTufts(canvas, canvas.height - 8, 30, rng, palette);
       break;
     }
   }
