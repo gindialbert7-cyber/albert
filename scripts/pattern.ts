@@ -36,6 +36,7 @@ import {
   type Scale,
   type Directionality,
 } from '../lib/artmath/compose/intent-router';
+import { parseBrief } from '../lib/artmath/compose/brain';
 import type { Strategy } from '../lib/artmath/color/colorway';
 
 function arg(name: string, fallback?: string): string | undefined {
@@ -57,30 +58,74 @@ function validate<T extends string>(label: string, value: string | undefined, al
   process.exit(1);
 }
 
-const color = arg('color') ?? arg('hex');
-if (!color) {
-  console.error('error: --color is required (e.g. --color "#5a7042")');
-  process.exit(1);
-}
-if (!/^#?[0-9a-f]{6}$/i.test(color)) {
-  console.error(`error: --color must be 6-digit hex (got "${color}")`);
-  process.exit(1);
-}
+const brief = arg('brief');
+let intent: DesignIntent;
+let matched: ReturnType<typeof parseBrief>['matched'] | null = null;
 
-const intent: DesignIntent = {
-  mood: validate('mood', arg('mood'), moods, 'organic'),
-  density: validate('density', arg('density'), densities, 'medium'),
-  scale: validate('scale', arg('scale'), scales, 'medium'),
-  directionality: arg('directionality')
-    ? validate('directionality', arg('directionality'), directionalities, 'omni')
-    : undefined,
-  keyColor: color.startsWith('#') ? color : '#' + color,
-  paletteStrategy: validate('palette', arg('palette'), strategies, 'analogous'),
-  width: parseInt(arg('width') ?? '1200', 10),
-  height: parseInt(arg('height') ?? '800', 10),
-  seed: parseInt(arg('seed') ?? '0', 10) || 0xa770,
-  asTile: arg('tile') === 'true',
-};
+if (brief) {
+  // Free-text brief mode: parse via brain, then allow per-flag overrides.
+  const overrides: Partial<DesignIntent> = {};
+  const m = arg('mood');
+  if (m) overrides.mood = validate('mood', m, moods, 'organic');
+  const d = arg('density');
+  if (d) overrides.density = validate('density', d, densities, 'medium');
+  const s = arg('scale');
+  if (s) overrides.scale = validate('scale', s, scales, 'medium');
+  const dir = arg('directionality');
+  if (dir) overrides.directionality = validate('directionality', dir, directionalities, 'omni');
+  const p = arg('palette');
+  if (p) overrides.paletteStrategy = validate('palette', p, strategies, 'analogous');
+  const c = arg('color') ?? arg('hex');
+  if (c) {
+    if (!/^#?[0-9a-f]{6}$/i.test(c)) {
+      console.error(`error: --color must be 6-digit hex (got "${c}")`);
+      process.exit(1);
+    }
+    overrides.keyColor = c.startsWith('#') ? c : '#' + c;
+  }
+  overrides.width = parseInt(arg('width') ?? '1200', 10);
+  overrides.height = parseInt(arg('height') ?? '800', 10);
+  overrides.seed = parseInt(arg('seed') ?? '0', 10) || 0xa770;
+  overrides.asTile = arg('tile') === 'true';
+  const parsed = parseBrief(brief, overrides);
+  intent = parsed.intent;
+  matched = parsed.matched;
+  console.log('Brief:', JSON.stringify(brief));
+  console.log('Parsed matches:');
+  console.log('  mood:        ', intent.mood, matched.mood.length ? `(${matched.mood.join(', ')})` : '(default)');
+  console.log('  density:     ', intent.density, matched.density.length ? `(${matched.density.join(', ')})` : '(default)');
+  console.log('  scale:       ', intent.scale, matched.scale.length ? `(${matched.scale.join(', ')})` : '(default)');
+  if (intent.directionality) {
+    console.log('  direction:   ', intent.directionality, `(${matched.direction.join(', ')})`);
+  }
+  console.log('  palette:     ', intent.paletteStrategy, matched.palette.length ? `(${matched.palette.join(', ')})` : '(default)');
+  console.log('  color:       ', matched.color);
+  console.log('');
+} else {
+  const color = arg('color') ?? arg('hex');
+  if (!color) {
+    console.error('error: --color is required (e.g. --color "#5a7042"), or use --brief "..."');
+    process.exit(1);
+  }
+  if (!/^#?[0-9a-f]{6}$/i.test(color)) {
+    console.error(`error: --color must be 6-digit hex (got "${color}")`);
+    process.exit(1);
+  }
+  intent = {
+    mood: validate('mood', arg('mood'), moods, 'organic'),
+    density: validate('density', arg('density'), densities, 'medium'),
+    scale: validate('scale', arg('scale'), scales, 'medium'),
+    directionality: arg('directionality')
+      ? validate('directionality', arg('directionality'), directionalities, 'omni')
+      : undefined,
+    keyColor: color.startsWith('#') ? color : '#' + color,
+    paletteStrategy: validate('palette', arg('palette'), strategies, 'analogous'),
+    width: parseInt(arg('width') ?? '1200', 10),
+    height: parseInt(arg('height') ?? '800', 10),
+    seed: parseInt(arg('seed') ?? '0', 10) || 0xa770,
+    asTile: arg('tile') === 'true',
+  };
+}
 
 const out = arg('out') ?? '/tmp/pattern.png';
 const ext = path.extname(out).toLowerCase();
