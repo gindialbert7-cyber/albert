@@ -12,6 +12,7 @@ import { Palette, getPalette, Mood } from './palette';
 import type { Artist } from './artist';
 import { fusePalette } from './palette-fuse';
 import { mulberry32, hashString } from './rng';
+import { fmt2 } from './math/det-format';
 import {
   drawBackdrop,
   paperBackground,
@@ -87,6 +88,19 @@ export function renderPage(page: Page, cast: Character[], artist?: Artist): stri
   }
   // 4) characters
   if (page.characters) {
+    // 4a) ground shadows under each character (drawn first, so they sit
+    //     under any character body and behind props)
+    for (const pc of page.characters) {
+      const c = cast.find((x) => x.id === pc.characterId);
+      if (!c) continue;
+      // Pass-through scale: character.scale × placement.scale
+      const scale = c.scale * (pc.placement.scale ?? 1);
+      const shadowW = 48 * scale;
+      const shadowH = 7 * scale;
+      // Shadow ellipse at the character's foot position.
+      svg += `<ellipse cx="${fmt2(pc.placement.x)}" cy="${fmt2(pc.placement.y + 2 * scale)}" rx="${fmt2(shadowW)}" ry="${fmt2(shadowH)}" fill="${palette.ink}" opacity="0.14"/>`;
+    }
+    // 4b) the characters themselves
     for (const pc of page.characters) {
       const c = cast.find((x) => x.id === pc.characterId);
       if (!c) {

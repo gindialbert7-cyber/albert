@@ -302,12 +302,18 @@ const POSE_PRESETS: Record<
   NonNullable<Page['characters']>[number]['pose']
 > = {
   'walking forward': { facing: 'right', arms: 'down', legs: 'walk', eyes: 'open', mouth: 'smile', headTilt: 3 },
+  'walking left': { facing: 'left', arms: 'down', legs: 'walk', eyes: 'open', mouth: 'smile', headTilt: 3 },
   'standing happily': { facing: 'forward', arms: 'down', legs: 'stand', eyes: 'open', mouth: 'smile', headTilt: 0 },
   'looking up surprised': { facing: 'forward', arms: 'reach-up', legs: 'stand', eyes: 'wide', mouth: 'open-o', headTilt: -8 },
   'sitting quietly': { facing: 'forward', arms: 'hold-front', legs: 'sit', eyes: 'open', mouth: 'small', headTilt: 0 },
   'waving hello': { facing: 'forward', arms: 'wave', legs: 'stand', eyes: 'open', mouth: 'smile', headTilt: 0 },
   'hugging': { facing: 'forward', arms: 'hugging', legs: 'stand', eyes: 'closed', mouth: 'smile', headTilt: 0 },
   'sleepy': { facing: 'forward', arms: 'down', legs: 'stand', eyes: 'closed', mouth: 'small', headTilt: 8 },
+  'sad': { facing: 'forward', arms: 'down', legs: 'stand', eyes: 'closed', mouth: 'frown', headTilt: 12 },
+  'curious tilt': { facing: 'right', arms: 'down', legs: 'stand', eyes: 'open', mouth: 'small', headTilt: -15 },
+  'winking right': { facing: 'forward', arms: 'wave', legs: 'stand', eyes: 'wink-right', mouth: 'smile', headTilt: 4 },
+  'reaching out': { facing: 'right', arms: 'reach-up', legs: 'stand', eyes: 'open', mouth: 'open-o', headTilt: -5 },
+  'thoughtful sit': { facing: 'forward', arms: 'hold-front', legs: 'sit', eyes: 'open', mouth: 'small', headTilt: 12 },
 };
 
 // ─── Color palettes for characters by species ─────────────────────────────
