@@ -16,6 +16,8 @@ import { Rng } from '../rng';
 import { Character, Pose, Placement, characterRng } from '../character';
 import { Palette } from '../palette';
 import { watercolorWash, darken, lighten } from '../watercolor';
+import { fmt2 } from '../math/det-format';
+import { dSin, dCos } from '../math/det-math';
 
 export function drawRabbit(
   c: Character,
@@ -39,7 +41,7 @@ export function drawRabbit(
 
   const bodyCx = ox;
   const bodyCy = oy - bodyH / 2 - (pose.legs === 'sit' ? -8 * scale : 14 * scale);
-  const headCx = bodyCx + Math.sin(((pose.headTilt ?? 0) * Math.PI) / 180) * 8 * scale;
+  const headCx = bodyCx + dSin(((pose.headTilt ?? 0) * Math.PI) / 180) * 8 * scale;
   const headCy = bodyCy - bodyH / 2 - headR * 0.55;
 
   let svg = '';
@@ -168,8 +170,8 @@ function earSvg(
   const t = tilt + baseTilt + sign * 0.08;
 
   // Ear oriented along (sin t, -cos t)
-  const dx = Math.sin(t);
-  const dy = -Math.cos(t);
+  const dx = dSin(t);
+  const dy = -dCos(t);
   const px = -dy;
   const py = dx;
   const tipX = earBaseX + dx * earH;
@@ -389,24 +391,12 @@ function faceSvg(
     const ex = hx + sign * eyeDx;
     if (pose.eyes === 'closed' || (pose.eyes === 'wink-left' && sign === -1) || (pose.eyes === 'wink-right' && sign === 1)) {
       // Curved closed eye
-      svg += `<path d="M${(ex - eyeR * 1.4).toFixed(2)} ${eyeY.toFixed(
-        2,
-      )} Q${ex.toFixed(2)} ${(eyeY + eyeR * 1.2).toFixed(2)} ${(ex + eyeR * 1.4).toFixed(
-        2,
-      )} ${eyeY.toFixed(
-        2,
-      )}" fill="none" stroke="${palette.ink}" stroke-width="${(1.4 * scale).toFixed(
-        2,
-      )}" stroke-linecap="round"/>`;
+      svg += `<path d="M${fmt2(ex - eyeR * 1.4)} ${fmt2(eyeY)} Q${fmt2(ex)} ${fmt2(eyeY + eyeR * 1.2)} ${fmt2(ex + eyeR * 1.4)} ${fmt2(eyeY)}" fill="none" stroke="${palette.ink}" stroke-width="${fmt2(1.4 * scale)}" stroke-linecap="round"/>`;
     } else {
       const r = pose.eyes === 'wide' ? eyeR * 1.3 : eyeR;
-      svg += `<circle cx="${ex.toFixed(2)}" cy="${eyeY.toFixed(2)}" r="${r.toFixed(
-        2,
-      )}" fill="${palette.ink}"/>`;
+      svg += `<circle cx="${fmt2(ex)}" cy="${fmt2(eyeY)}" r="${fmt2(r)}" fill="${palette.ink}"/>`;
       if (c.eyeStyle === 'dot-shine') {
-        svg += `<circle cx="${(ex + r * 0.35).toFixed(2)}" cy="${(eyeY - r * 0.4).toFixed(
-          2,
-        )}" r="${(r * 0.32).toFixed(2)}" fill="#ffffff" opacity="0.95"/>`;
+        svg += `<circle cx="${fmt2(ex + r * 0.35)}" cy="${fmt2(eyeY - r * 0.4)}" r="${fmt2(r * 0.32)}" fill="#ffffff" opacity="0.95"/>`;
       }
     }
   }
@@ -415,9 +405,9 @@ function faceSvg(
   for (const sign of [-1, 1]) {
     const cxC = hx + sign * headR * 0.42;
     const cyC = hy + headR * 0.18;
-    svg += `<ellipse cx="${cxC.toFixed(2)}" cy="${cyC.toFixed(2)}" rx="${(
+    svg += `<ellipse cx="${fmt2(cxC)}" cy="${fmt2(cyC)}" rx="${fmt2(
       6.5 * scale
-    ).toFixed(2)}" ry="${(4.5 * scale).toFixed(2)}" fill="${
+    )}" ry="${fmt2(4.5 * scale)}" fill="${
       c.cheekColor
     }" opacity="0.55"/>`;
   }
@@ -425,48 +415,36 @@ function faceSvg(
   // Nose (small upside-down triangle / Y)
   const noseY = hy + headR * 0.18;
   const noseR = 3.5 * scale;
-  svg += `<path d="M${(hx - noseR).toFixed(2)} ${noseY.toFixed(
-    2,
-  )} L${(hx + noseR).toFixed(2)} ${noseY.toFixed(2)} L${hx.toFixed(2)} ${(
+  svg += `<path d="M${fmt2(hx - noseR)} ${fmt2(noseY)} L${fmt2(hx + noseR)} ${fmt2(noseY)} L${fmt2(hx)} ${fmt2(
     noseY +
     noseR * 0.9
-  ).toFixed(2)} Z" fill="${c.noseColor}" opacity="0.95" stroke="${
+  )} Z" fill="${c.noseColor}" opacity="0.95" stroke="${
     palette.ink
-  }" stroke-width="${(0.6 * scale).toFixed(2)}" stroke-linejoin="round"/>`;
+  }" stroke-width="${fmt2(0.6 * scale)}" stroke-linejoin="round"/>`;
 
   // Mouth (a soft Y or curve)
   const mouthY = noseY + noseR * 0.9;
   const w = 5 * scale;
   if (pose.mouth === 'smile' || pose.mouth === 'small') {
     const dy = pose.mouth === 'smile' ? 3 * scale : 1.2 * scale;
-    svg += `<path d="M${hx.toFixed(2)} ${mouthY.toFixed(2)} L${hx.toFixed(2)} ${(
+    svg += `<path d="M${fmt2(hx)} ${fmt2(mouthY)} L${fmt2(hx)} ${fmt2(
       mouthY +
       2 * scale
-    ).toFixed(
-      2,
-    )} M${(hx - w).toFixed(2)} ${(mouthY + 2 * scale).toFixed(
-      2,
-    )} Q${hx.toFixed(2)} ${(mouthY + 2 * scale + dy).toFixed(2)} ${(
+    )} M${fmt2(hx - w)} ${fmt2(mouthY + 2 * scale)} Q${fmt2(hx)} ${fmt2(mouthY + 2 * scale + dy)} ${fmt2(
       hx + w
-    ).toFixed(2)} ${(mouthY + 2 * scale).toFixed(2)}" fill="none" stroke="${
+    )} ${fmt2(mouthY + 2 * scale)}" fill="none" stroke="${
       palette.ink
-    }" stroke-width="${(1.0 * scale).toFixed(2)}" stroke-linecap="round"/>`;
+    }" stroke-width="${fmt2(1.0 * scale)}" stroke-linecap="round"/>`;
   } else if (pose.mouth === 'open-o') {
-    svg += `<ellipse cx="${hx.toFixed(2)}" cy="${(mouthY + 3 * scale).toFixed(
-      2,
-    )}" rx="${(2.5 * scale).toFixed(2)}" ry="${(3 * scale).toFixed(
-      2,
-    )}" fill="${darken(c.cheekColor, 0.2)}" stroke="${palette.ink}" stroke-width="${(
+    svg += `<ellipse cx="${fmt2(hx)}" cy="${fmt2(mouthY + 3 * scale)}" rx="${fmt2(2.5 * scale)}" ry="${fmt2(3 * scale)}" fill="${darken(c.cheekColor, 0.2)}" stroke="${palette.ink}" stroke-width="${fmt2(
       0.8 * scale
-    ).toFixed(2)}"/>`;
+    )}"/>`;
   } else if (pose.mouth === 'frown') {
-    svg += `<path d="M${(hx - w).toFixed(2)} ${(mouthY + 5 * scale).toFixed(
-      2,
-    )} Q${hx.toFixed(2)} ${(mouthY + 2 * scale).toFixed(2)} ${(
+    svg += `<path d="M${fmt2(hx - w)} ${fmt2(mouthY + 5 * scale)} Q${fmt2(hx)} ${fmt2(mouthY + 2 * scale)} ${fmt2(
       hx + w
-    ).toFixed(2)} ${(mouthY + 5 * scale).toFixed(2)}" fill="none" stroke="${
+    )} ${fmt2(mouthY + 5 * scale)}" fill="none" stroke="${
       palette.ink
-    }" stroke-width="${(1.0 * scale).toFixed(2)}" stroke-linecap="round"/>`;
+    }" stroke-width="${fmt2(1.0 * scale)}" stroke-linecap="round"/>`;
   }
 
   // A few whisker hints
@@ -553,20 +531,20 @@ function accessorySvg(
     const petals = 5;
     for (let i = 0; i < petals; i++) {
       const ang = (i / petals) * Math.PI * 2;
-      const px = fx + Math.cos(ang) * 6 * scale;
-      const py = fy + Math.sin(ang) * 6 * scale;
+      const px = fx + dCos(ang) * 6 * scale;
+      const py = fy + dSin(ang) * 6 * scale;
       const { svg: p } = handCircle(px, py, 4 * scale, rng, {
         color: palette.ink,
         width: 0.9,
         wobble: 0.5,
       });
-      svg += `<circle cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" r="${(
+      svg += `<circle cx="${fmt2(px)}" cy="${fmt2(py)}" r="${fmt2(
         4 * scale
-      ).toFixed(2)}" fill="${a.color}" opacity="0.85"/>${p}`;
+      )}" fill="${a.color}" opacity="0.85"/>${p}`;
     }
-    svg += `<circle cx="${fx.toFixed(2)}" cy="${fy.toFixed(2)}" r="${(
+    svg += `<circle cx="${fmt2(fx)}" cy="${fmt2(fy)}" r="${fmt2(
       3 * scale
-    ).toFixed(2)}" fill="${c.bellyColor}"/>`;
+    )}" fill="${c.bellyColor}"/>`;
   } else if (a.kind === 'bowtie') {
     const ny = (hy + headR * 0.85 + by - 30 * scale) / 2;
     const w = 12 * scale;
@@ -641,7 +619,7 @@ function blob(
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
     const m = 1 + (rng() - 0.5) * 2 * irreg;
-    pts.push([cx + Math.cos(a) * rx * m, cy + Math.sin(a) * ry * m]);
+    pts.push([cx + dCos(a) * rx * m, cy + dSin(a) * ry * m]);
   }
   return pts;
 }

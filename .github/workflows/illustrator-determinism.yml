@@ -1,0 +1,92 @@
+name: illustrator-determinism
+
+# The renderer's foundational claim is byte-identical output from the
+# same parameters across all platforms. This workflow verifies that
+# claim on every PR by running the canonical 38-document suite on three
+# different OS + architecture combinations and asserting all three
+# produce the golden hashes committed in
+# scripts/determinism-golden.json.
+#
+# Any divergence blocks merge.
+
+on:
+  pull_request:
+    paths:
+      - 'lib/illustrator/**'
+      - 'scripts/determinism-ci.ts'
+      - 'scripts/determinism-golden.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/illustrator-determinism.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'lib/illustrator/**'
+
+jobs:
+  lint:
+    name: forbidden-identifier lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx eslint lib/illustrator/
+
+  determinism:
+    name: ${{ matrix.os }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x86_64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: macos
+            arch: arm64
+            runner: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Render canonical suite and compare to golden
+        run: npx tsx scripts/determinism-ci.ts
+      - name: On failure, upload SHA report
+        if: failure()
+        run: |
+          mkdir -p ci-out
+          npx tsx scripts/determinism-ci.ts --update
+          cp scripts/determinism-golden.json ci-out/actual-${{ matrix.os }}-${{ matrix.arch }}.json
+      - name: Upload actual hashes on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: determinism-${{ matrix.os }}-${{ matrix.arch }}
+          path: ci-out/
+
+  forbidden-identifier-runtime-check:
+    name: monkey-patched non-determinism trap
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Render with Math.random/Date.now monkey-patched to throw
+        # This catches any non-determinism source that snuck past the
+        # ESLint rule via runtime dynamism (e.g., property access that
+        # static analysis didn't catch).
+        run: npx tsx scripts/determinism-monkey-trap.ts

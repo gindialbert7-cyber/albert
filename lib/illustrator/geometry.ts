@@ -1,5 +1,7 @@
 /** Geometry helpers shared by stroke and fill renderers. */
 
+import { fmt2 } from './math/det-format';
+
 export type Pt = [number, number];
 
 export function dist(a: Pt, b: Pt): number {
@@ -89,7 +91,7 @@ export function polylinePath(pts: Pt[], closed = false): string {
 }
 
 export function fmt(n: number): string {
-  return Number.isFinite(n) ? n.toFixed(2) : '0';
+  return Number.isFinite(n) ? fmt2(n) : '0';
 }
 
 /** Sample N points along a polyline, evenly by arc length. */

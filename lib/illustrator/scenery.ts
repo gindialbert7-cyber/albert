@@ -11,6 +11,8 @@ import { handStroke, hatchFill } from './drawing';
 import { Rng, mulberry32, range, makeNoise2D, hashString } from './rng';
 import { Palette, pickFlowerColor } from './palette';
 import { watercolorWash, lighten, darken } from './watercolor';
+import { fmt1, fmt2 } from './math/det-format';
+import { dSin, dCos } from './math/det-math';
 
 export type Canvas = { width: number; height: number };
 
@@ -35,18 +37,14 @@ export function paperBackground(canvas: Canvas, palette: Palette, seed: number):
     const r = range(rng, 0.3, 1.1);
     const op = range(rng, 0.04, 0.12);
     const c = rng() < 0.5 ? '#a89a82' : '#cdbfa5';
-    svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(
-      2,
-    )}" fill="${c}" opacity="${op.toFixed(2)}"/>`;
+    svg += `<circle cx="${fmt1(x)}" cy="${fmt1(y)}" r="${fmt2(r)}" fill="${c}" opacity="${fmt2(op)}"/>`;
   }
   // a few faint smudges
   for (let i = 0; i < 6; i++) {
     const x = rng() * canvas.width;
     const y = rng() * canvas.height;
     const r = range(rng, 30, 90);
-    svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(
-      2,
-    )}" fill="#d8c8a8" opacity="0.04"/>`;
+    svg += `<circle cx="${fmt1(x)}" cy="${fmt1(y)}" r="${fmt2(r)}" fill="#d8c8a8" opacity="0.04"/>`;
   }
   return svg;
 }
@@ -84,12 +82,12 @@ function skyWash(canvas: Canvas, palette: Palette, rng: Rng, horizonY: number): 
     const segs = 12;
     for (let s = 0; s <= segs; s++) {
       const x = (s / segs) * canvas.width;
-      const yo = y + Math.sin(s * 0.6 + i) * 4;
+      const yo = y + dSin(s * 0.6 + i) * 4;
       poly.push([x, yo]);
     }
     for (let s = segs; s >= 0; s--) {
       const x = (s / segs) * canvas.width;
-      const yo = y + h + Math.sin(s * 0.4 + i + 2) * 4;
+      const yo = y + h + dSin(s * 0.4 + i + 2) * 4;
       poly.push([x, yo]);
     }
     svg += watercolorWash(poly, rng, {
@@ -191,10 +189,10 @@ export function sun(
     const n = 10;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + 0.15;
-      const x1 = cx + Math.cos(a) * r * 1.2;
-      const y1 = cy + Math.sin(a) * r * 1.2;
-      const x2 = cx + Math.cos(a) * r * 1.7;
-      const y2 = cy + Math.sin(a) * r * 1.7;
+      const x1 = cx + dCos(a) * r * 1.2;
+      const y1 = cy + dSin(a) * r * 1.2;
+      const x2 = cx + dCos(a) * r * 1.7;
+      const y2 = cy + dSin(a) * r * 1.7;
       svg += handStroke([[x1, y1], [x2, y2]], rng, {
         color: palette.sun,
         width: 1.6,
@@ -232,12 +230,10 @@ export function moon(cx: number, cy: number, r: number, rng: Rng, palette: Palet
   for (let i = 0; i < 3; i++) {
     const ang = rng() * Math.PI * 2;
     const dist = rng() * r * 0.5;
-    const cxC = cx + Math.cos(ang) * dist;
-    const cyC = cy + Math.sin(ang) * dist;
+    const cxC = cx + dCos(ang) * dist;
+    const cyC = cy + dSin(ang) * dist;
     const cr = range(rng, r * 0.06, r * 0.12);
-    svg += `<circle cx="${cxC.toFixed(2)}" cy="${cyC.toFixed(2)}" r="${cr.toFixed(
-      2,
-    )}" fill="${darken(palette.moon, 0.1)}" opacity="0.45"/>`;
+    svg += `<circle cx="${fmt2(cxC)}" cy="${fmt2(cyC)}" r="${fmt2(cr)}" fill="${darken(palette.moon, 0.1)}" opacity="0.45"/>`;
   }
   return svg;
 }
@@ -249,15 +245,11 @@ export function stars(canvas: Canvas, count: number, rng: Rng, palette: Palette,
     const y = rng() * maxY;
     const s = range(rng, 1.2, 2.6);
     // four-pointed star = two crossed lines
-    svg += `<path d="M${(x - s).toFixed(2)} ${y.toFixed(2)} L${(x + s).toFixed(
-      2,
-    )} ${y.toFixed(2)} M${x.toFixed(2)} ${(y - s).toFixed(2)} L${x.toFixed(2)} ${(
+    svg += `<path d="M${fmt2(x - s)} ${fmt2(y)} L${fmt2(x + s)} ${fmt2(y)} M${fmt2(x)} ${fmt2(y - s)} L${fmt2(x)} ${fmt2(
       y + s
-    ).toFixed(
-      2,
     )}" stroke="${palette.star}" stroke-width="0.9" stroke-linecap="round" opacity="0.9"/>`;
     if (rng() < 0.3) {
-      svg += `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="0.6" fill="${palette.star}" opacity="0.9"/>`;
+      svg += `<circle cx="${fmt2(x)}" cy="${fmt2(y)}" r="0.6" fill="${palette.star}" opacity="0.9"/>`;
     }
   }
   return svg;
@@ -269,7 +261,7 @@ export function cloud(cx: number, cy: number, w: number, rng: Rng, palette: Pale
   for (let i = 0; i <= lobes; i++) {
     const t = i / lobes;
     const x = cx - w * 0.5 + t * w;
-    const y = cy + Math.sin(t * Math.PI) * -w * 0.18 + (rng() - 0.5) * 4;
+    const y = cy + dSin(t * Math.PI) * -w * 0.18 + (rng() - 0.5) * 4;
     pts.push([x, y]);
   }
   // bottom
@@ -318,7 +310,7 @@ export function tree(cx: number, baseY: number, h: number, rng: Rng, palette: Pa
   for (let i = 0; i < lobes; i++) {
     const a = (i / lobes) * Math.PI * 2;
     const m = 1 + (rng() - 0.5) * 0.18;
-    crown.push([cx + Math.cos(a) * crownR * m, crownCy + Math.sin(a) * crownR * m * 0.95]);
+    crown.push([cx + dCos(a) * crownR * m, crownCy + dSin(a) * crownR * m * 0.95]);
   }
   svg += watercolorWash(crown, rng, { color: palette.leaf, opacity: 0.7, bleed: 4 });
   // shading on lower-right
@@ -375,7 +367,7 @@ export function mushroom(
   for (let i = 0; i <= seg; i++) {
     const t = i / seg;
     const a = Math.PI + t * Math.PI;
-    capPts.push([cx + Math.cos(a) * capR, capCy + Math.sin(a) * capR * 0.7]);
+    capPts.push([cx + dCos(a) * capR, capCy + dSin(a) * capR * 0.7]);
   }
   capPts.push([cx + capR, capCy + 2 * scale]);
   capPts.push([cx - capR, capCy + 2 * scale]);
@@ -401,10 +393,10 @@ export function mushroom(
   for (let i = 0; i < dots; i++) {
     const t = (i + 0.5) / dots;
     const x = cx - capR * 0.7 + t * capR * 1.4;
-    const y = capCy - capR * 0.35 + Math.sin(t * Math.PI) * -3 * scale;
-    svg += `<ellipse cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" rx="${(
+    const y = capCy - capR * 0.35 + dSin(t * Math.PI) * -3 * scale;
+    svg += `<ellipse cx="${fmt2(x)}" cy="${fmt2(y)}" rx="${fmt2(
       2.4 * scale
-    ).toFixed(2)}" ry="${(1.8 * scale).toFixed(2)}" fill="#fffaf0" opacity="0.9"/>`;
+    )}" ry="${fmt2(1.8 * scale)}" fill="#fffaf0" opacity="0.9"/>`;
   }
   return svg;
 }
@@ -462,25 +454,21 @@ export function flower(
   const petalR = 4 * scale;
   for (let i = 0; i < petals; i++) {
     const a = (i / petals) * Math.PI * 2 + rng() * 0.2;
-    const px = stemEndX + Math.cos(a) * petalR * 1.1;
-    const py = stemEndY + Math.sin(a) * petalR * 1.1;
-    svg += `<ellipse cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" rx="${(
+    const px = stemEndX + dCos(a) * petalR * 1.1;
+    const py = stemEndY + dSin(a) * petalR * 1.1;
+    svg += `<ellipse cx="${fmt2(px)}" cy="${fmt2(py)}" rx="${fmt2(
       petalR
-    ).toFixed(2)}" ry="${(petalR * 0.75).toFixed(
-      2,
-    )}" fill="${c}" opacity="0.85" stroke="${
+    )}" ry="${fmt2(petalR * 0.75)}" fill="${c}" opacity="0.85" stroke="${
       palette.inkSoft
-    }" stroke-width="${(0.4 * scale).toFixed(2)}" transform="rotate(${(
+    }" stroke-width="${fmt2(0.4 * scale)}" transform="rotate(${fmt2(
       (a * 180) /
       Math.PI
-    ).toFixed(2)} ${px.toFixed(2)} ${py.toFixed(2)})"/>`;
+    )} ${fmt2(px)} ${fmt2(py)})"/>`;
   }
   // center
-  svg += `<circle cx="${stemEndX.toFixed(2)}" cy="${stemEndY.toFixed(
-    2,
-  )}" r="${(petalR * 0.55).toFixed(2)}" fill="${
+  svg += `<circle cx="${fmt2(stemEndX)}" cy="${fmt2(stemEndY)}" r="${fmt2(petalR * 0.55)}" fill="${
     palette.flowerCenter
-  }" stroke="${palette.ink}" stroke-width="${(0.5 * scale).toFixed(2)}"/>`;
+  }" stroke="${palette.ink}" stroke-width="${fmt2(0.5 * scale)}"/>`;
   return svg;
 }
 
@@ -488,9 +476,9 @@ export function butterfly(cx: number, cy: number, scale: number, rng: Rng, palet
   const wingColor = pickFlowerColor(palette, rng);
   let svg = '';
   // body
-  svg += `<ellipse cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" rx="${(
+  svg += `<ellipse cx="${fmt2(cx)}" cy="${fmt2(cy)}" rx="${fmt2(
     1.2 * scale
-  ).toFixed(2)}" ry="${(4 * scale).toFixed(2)}" fill="${palette.ink}"/>`;
+  )}" ry="${fmt2(4 * scale)}" fill="${palette.ink}"/>`;
   // wings — top
   for (const sign of [-1, 1]) {
     const wing: Pt[] = [
@@ -526,34 +514,26 @@ export function butterfly(cx: number, cy: number, scale: number, rng: Rng, palet
     });
   }
   // antennae
-  svg += `<path d="M${cx.toFixed(2)} ${(cy - 4 * scale).toFixed(2)} q${(
+  svg += `<path d="M${fmt2(cx)} ${fmt2(cy - 4 * scale)} q${fmt2(
     -1 * scale
-  ).toFixed(2)} ${(-3 * scale).toFixed(2)} ${(-3 * scale).toFixed(2)} ${(
+  )} ${fmt2(-3 * scale)} ${fmt2(-3 * scale)} ${fmt2(
     -4 * scale
-  ).toFixed(2)} M${cx.toFixed(2)} ${(cy - 4 * scale).toFixed(2)} q${(
+  )} M${fmt2(cx)} ${fmt2(cy - 4 * scale)} q${fmt2(
     1 * scale
-  ).toFixed(2)} ${(-3 * scale).toFixed(2)} ${(3 * scale).toFixed(2)} ${(
+  )} ${fmt2(-3 * scale)} ${fmt2(3 * scale)} ${fmt2(
     -4 * scale
-  ).toFixed(
-    2,
-  )}" stroke="${palette.ink}" stroke-width="${(0.6 * scale).toFixed(
-    2,
-  )}" fill="none" stroke-linecap="round"/>`;
+  )}" stroke="${palette.ink}" stroke-width="${fmt2(0.6 * scale)}" fill="none" stroke-linecap="round"/>`;
   return svg;
 }
 
 export function littleBird(cx: number, cy: number, scale: number, rng: Rng, palette: Palette): string {
   // an "M" silhouette
   const w = 8 * scale;
-  return `<path d="M${(cx - w).toFixed(2)} ${cy.toFixed(2)} q${(
+  return `<path d="M${fmt2(cx - w)} ${fmt2(cy)} q${fmt2(
     w * 0.5
-  ).toFixed(2)} ${(-w * 0.6).toFixed(2)} ${w.toFixed(2)} 0 q${(
+  )} ${fmt2(-w * 0.6)} ${fmt2(w)} 0 q${fmt2(
     w * 0.5
-  ).toFixed(2)} ${(-w * 0.6).toFixed(2)} ${w.toFixed(
-    2,
-  )} 0" stroke="${palette.ink}" stroke-width="${(1.2 * scale).toFixed(
-    2,
-  )}" fill="none" stroke-linecap="round"/>`;
+  )} ${fmt2(-w * 0.6)} ${fmt2(w)} 0" stroke="${palette.ink}" stroke-width="${fmt2(1.2 * scale)}" fill="none" stroke-linecap="round"/>`;
 }
 
 export function grassTufts(canvas: Canvas, baseY: number, count: number, rng: Rng, palette: Palette): string {
@@ -703,8 +683,8 @@ export function drawBackdrop(
       for (let i = 0; i <= segs; i++) {
         const t = i / segs;
         const a = Math.PI * t;
-        const x = canvas.width * 0.5 + Math.cos(Math.PI - a) * canvas.width * 0.55;
-        const y = canvas.height * 0.4 + Math.sin(Math.PI - a) * canvas.height * 0.55;
+        const x = canvas.width * 0.5 + dCos(Math.PI - a) * canvas.width * 0.55;
+        const y = canvas.height * 0.4 + dSin(Math.PI - a) * canvas.height * 0.55;
         arch.push([x, y]);
       }
       arch.push([canvas.width + 10, canvas.height + 10]);
@@ -718,22 +698,12 @@ export function drawBackdrop(
       for (let i = 0; i < 80; i++) {
         const x = rng() * canvas.width;
         const y = rng() * canvas.height;
-        svg += `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${range(
-          rng,
-          0.4,
-          1.4,
-        ).toFixed(2)}" fill="${darken(palette.trunk, 0.15)}" opacity="${range(
-          rng,
-          0.2,
-          0.5,
-        ).toFixed(2)}"/>`;
+        svg += `<circle cx="${fmt2(x)}" cy="${fmt2(y)}" r="${fmt2(range(rng, 0.4, 1.4))}" fill="${darken(palette.trunk, 0.15)}" opacity="${fmt2(range(rng, 0.2, 0.5))}"/>`;
       }
       // a small round window of light at the entrance
-      svg += `<ellipse cx="${(canvas.width * 0.85).toFixed(2)}" cy="${(
+      svg += `<ellipse cx="${fmt2(canvas.width * 0.85)}" cy="${fmt2(
         canvas.height * 0.45
-      ).toFixed(2)}" rx="${(canvas.width * 0.1).toFixed(
-        2,
-      )}" ry="${(canvas.height * 0.18).toFixed(2)}" fill="${
+      )}" rx="${fmt2(canvas.width * 0.1)}" ry="${fmt2(canvas.height * 0.18)}" fill="${
         palette.sunGlow
       }" opacity="0.55"/>`;
       break;
@@ -792,7 +762,7 @@ function circlePoly(cx: number, cy: number, r: number, n: number, rng: Rng, irre
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
     const m = 1 + (rng() - 0.5) * 2 * irreg;
-    pts.push([cx + Math.cos(a) * r * m, cy + Math.sin(a) * r * m]);
+    pts.push([cx + dCos(a) * r * m, cy + dSin(a) * r * m]);
   }
   return pts;
 }

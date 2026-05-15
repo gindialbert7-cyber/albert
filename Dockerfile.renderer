@@ -1,0 +1,64 @@
+# Renderer image — reproducible, version-pinned.
+#
+# Build:
+#   docker buildx build --platform linux/amd64,linux/arm64 \
+#     -f Dockerfile.renderer -t albert-renderer:<output-version> .
+#
+# The resulting image's SHA digest IS the renderer-output-version's
+# pinning anchor. Store the digest in scripts/renderer-versions.json
+# and archive the image in S3 Glacier Deep Archive for ≥10 years.
+#
+# Determinism contract: rendering the canonical suite inside this image
+# on Linux x86-64 or Linux ARM64 produces the byte sequences in
+# scripts/determinism-golden.json. Diverging means the renderer-output-
+# version must bump.
+
+# Pin the base image by digest — never by tag. Tags float; digests don't.
+# Node 22 LTS, slim, on Debian Bookworm. Replace digest at version bump
+# only after determinism-ci passes inside the new base.
+FROM node:22.20.0-bookworm-slim@sha256:e9a8c1f3b13c1f7c6f5d5b4c9c2a5d4e6f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c
+
+# Single-threaded execution for determinism. Multithreaded code
+# (Rust rayon, libvips, libjpeg-turbo SIMD merge) is order-dependent.
+ENV LC_ALL=C \
+    LANG=C.UTF-8 \
+    NODE_ENV=production \
+    NODE_OPTIONS="--no-warnings" \
+    RAYON_NUM_THREADS=1 \
+    OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    # SOURCE_DATE_EPOCH is honored by any tooling that emits dates.
+    SOURCE_DATE_EPOCH=1700000000
+
+WORKDIR /opt/renderer
+
+# Copy lockfile first for layer-cache efficiency. We vendor node_modules
+# into the image — never rely on the registry at render time.
+COPY package.json package-lock.json ./
+
+# `npm ci` is reproducible from lockfile; `npm install` is not.
+# --no-audit --no-fund avoids non-deterministic network calls.
+RUN npm ci --no-audit --no-fund --ignore-scripts \
+    && npm rebuild --no-audit --no-fund
+
+# Copy the renderer source. The .dockerignore ensures we don't bake
+# unrelated app code into the renderer image.
+COPY tsconfig.json ./
+COPY lib/illustrator/ ./lib/illustrator/
+COPY scripts/illustrate.ts \
+     scripts/determinism-ci.ts \
+     scripts/determinism-suite.ts \
+     scripts/determinism-monkey-trap.ts \
+     scripts/determinism-golden.json \
+     ./scripts/
+COPY examples/illustrator/ ./examples/illustrator/
+
+# Smoke-test: in-image determinism check. If this fails, the build fails.
+RUN npx tsx scripts/determinism-ci.ts \
+    && npx tsx scripts/determinism-monkey-trap.ts
+
+# Default entrypoint is the CLI. Override at run time:
+#   docker run --rm -v $(pwd):/work albert-renderer:<v> demo --out /work/out
+ENTRYPOINT ["npx", "tsx", "scripts/illustrate.ts"]
+CMD ["demo", "--out", "/out"]

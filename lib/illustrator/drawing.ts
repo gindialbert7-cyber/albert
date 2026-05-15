@@ -16,6 +16,7 @@ import {
   dist,
 } from './geometry';
 import { Rng, range, makeNoise2D } from './rng';
+import { dSin, dCos } from './math/det-math';
 
 export type StrokeOptions = {
   /** Random per-point offset amplitude (px). Adds raw graininess. */
@@ -75,7 +76,7 @@ export function handStroke(pts: Pt[], rng: Rng, opt: StrokeOptions = {}): string
       const j = (rng() - 0.5) * 2 * jitter;
       // Taper the wobble toward both endpoints so lines meet cleanly at corners.
       const t = i / Math.max(1, sampled.length - 1);
-      const taper = closed ? 1 : Math.sin(Math.PI * t) * 0.7 + 0.3;
+      const taper = closed ? 1 : dSin(Math.PI * t) * 0.7 + 0.3;
       const off = (w + j) * taper;
       return [point[0] + nx * off, point[1] + ny * off];
     });
@@ -129,10 +130,10 @@ function singleHatch(polygon: Pt[], rng: Rng, opt: HatchOptions): string {
   const skipChance = opt.skipChance ?? 0;
 
   // Rotate so that hatching is horizontal in working space.
-  const cos = Math.cos(-angle);
-  const sin = Math.sin(-angle);
-  const cosI = Math.cos(angle);
-  const sinI = Math.sin(angle);
+  const cos = dCos(-angle);
+  const sin = dSin(-angle);
+  const cosI = dCos(angle);
+  const sinI = dSin(angle);
   const rotated: Pt[] = polygon.map(([x, y]) => [x * cos - y * sin, x * sin + y * cos]);
 
   let yMin = Infinity;
@@ -186,7 +187,7 @@ export function handCircle(
   for (let i = 0; i < n; i++) {
     const a = startAngle + (i / n) * Math.PI * 2;
     const rr = r * (1 + (rng() - 0.5) * 0.04);
-    pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]);
+    pts.push([cx + dCos(a) * rr, cy + dSin(a) * rr]);
   }
   return {
     svg: handStroke(pts, rng, { ...opt, closed: true, overshoot: 0 }),

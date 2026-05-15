@@ -1,0 +1,11 @@
+{
+  "current": "2026.05.15",
+  "versions": {
+    "2026.05.15": {
+      "released": "2026-05-15",
+      "imageDigest": "pending — first build pending Docker buildx in CI",
+      "goldenSuiteHashesAt": "scripts/determinism-golden.json@HEAD",
+      "notes": "Initial release of the determinism-disciplined renderer. Math.sin/cos replaced with Remez polynomials in det-math.ts; toFixed replaced with integer-route formatter in det-format.ts; ESLint forbidden-identifier rule active; monkey-patch trap active; cross-OS determinism CI active."
+    }
+  }
+}
