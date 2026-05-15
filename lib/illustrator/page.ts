@@ -93,7 +93,7 @@ export function renderPage(page: Page, cast: Character[]): string {
     svg += renderProps(page.foreground, palette, seed ^ 0xf2);
   }
   // 6) vignette
-  svg += paperVignette(canvas, palette);
+  svg += paperVignette(canvas, palette, seed ^ 0xf17);
 
   // Wrap as full SVG
   const captionH = page.caption ? 40 : 0;

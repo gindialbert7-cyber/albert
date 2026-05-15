@@ -51,8 +51,8 @@ export function paperBackground(canvas: Canvas, palette: Palette, seed: number):
   return svg;
 }
 
-export function paperVignette(canvas: Canvas, palette: Palette): string {
-  const id = `vig-${Math.random().toString(36).slice(2, 8)}`;
+export function paperVignette(canvas: Canvas, palette: Palette, seed: number): string {
+  const id = `vig-${(seed >>> 0).toString(36)}`;
   return `
 <defs>
   <radialGradient id="${id}" cx="50%" cy="50%" r="75%">
