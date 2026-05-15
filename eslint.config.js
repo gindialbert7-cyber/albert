@@ -73,7 +73,7 @@ const tsParser = require('@typescript-eslint/parser');
 
 module.exports = [
   {
-    files: ['lib/illustrator/**/*.ts'],
+    files: ['lib/illustrator/**/*.ts', 'lib/artmath/**/*.ts'],
     ignores: ['lib/illustrator/math/det-math.ts', 'lib/illustrator/math/det-format.ts'],
     languageOptions: {
       parser: tsParser,
