@@ -2,9 +2,11 @@
 /**
  * scripts/phaseD-proof.ts
  *
- * Phase D pattern operators — three additional aesthetic axes:
+ * Phase D pattern operators — four more aesthetic axes:
  *   1. Phyllotaxis (sunflower / golden-angle spirals)
  *   2. Truchet tiles (1704 — 4 variants)
+ *   3. Diffusion-limited aggregation (frost / lichen / coral)
+ *   4. Penrose tiling (5-fold aperiodic, Islamic geometric art)
  *
  *   tsx scripts/phaseD-proof.ts [--out /tmp/phaseD]
  */
@@ -18,6 +20,8 @@ import {
   phyllotaxisPetals,
 } from '../lib/artmath/pattern/phyllotaxis';
 import { truchet, type TruchetVariant } from '../lib/artmath/pattern/truchet';
+import { dla, dlaSvg } from '../lib/artmath/pattern/dla';
+import { penroseTiling, penroseSvg } from '../lib/artmath/pattern/penrose';
 import { colorway } from '../lib/artmath/color/colorway';
 import { fmt2 } from '../lib/illustrator/math/det-format';
 
@@ -159,6 +163,103 @@ function header(text: string, sub: string, y: number): string {
     `<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${body}</svg>`,
   );
   console.log('  ✎ 02-truchet.svg');
+}
+
+// ─── 3. DLA ───────────────────────────────────────────────────────────
+{
+  const W = 1400;
+  const H = 760;
+  let body = `<rect width="${W}" height="${H}" fill="#fbf7ec"/>`;
+  body += header(
+    '3. Diffusion-limited aggregation — Witten-Sander 1981',
+    'Random walkers stick to a growing cluster. Same algorithm, different stickiness + seed counts produce frost, lichen, dendritic ice, electrical discharge.',
+    40,
+  );
+
+  const configs = [
+    { title: 'single seed (snowflake)', particles: 3500, stickiness: 1.0, seeds: undefined as undefined | Array<[number, number]> },
+    { title: 'low stickiness (denser)', particles: 4500, stickiness: 0.35, seeds: undefined },
+    { title: 'edge-line seed (coral)', particles: 4500, stickiness: 1.0, seeds: [[80, 240], [180, 240], [280, 240], [380, 240]] as Array<[number, number]> },
+  ];
+  const cellW = 420;
+  const cellH = 360;
+  for (let i = 0; i < configs.length; i++) {
+    const c = configs[i];
+    const cluster = dla({
+      width: cellW,
+      height: cellH,
+      cellSize: 2,
+      particles: c.particles,
+      stickiness: c.stickiness,
+      seeds: c.seeds,
+      seed: 0xd1a + i * 13,
+    });
+    const inner = dlaSvg(cluster, {
+      color: (t) => `hsl(${Math.floor(200 + t * 80)}, ${Math.floor(25 + (1 - t) * 30)}%, ${Math.floor(20 + t * 40)}%)`,
+      background: '#fdfaf2',
+    });
+    const x0 = 40 + i * (cellW + 16);
+    const y0 = 100;
+    body += `<g transform="translate(${x0} ${y0})">`;
+    body += `<clipPath id="dla-clip-${i}"><rect width="${cellW}" height="${cellH}"/></clipPath>`;
+    body += `<g clip-path="url(#dla-clip-${i})">${inner}</g>`;
+    body += `<rect width="${cellW}" height="${cellH}" fill="none" stroke="#39312a" stroke-width="0.6"/>`;
+    body += `</g>`;
+    body += `<text x="${x0 + cellW / 2}" y="${y0 + cellH + 22}" text-anchor="middle" font-family="monospace" font-size="11" fill="#39312a">${c.title}</text>`;
+    body += `<text x="${x0 + cellW / 2}" y="${y0 + cellH + 38}" text-anchor="middle" font-family="monospace" font-size="9" fill="#5b4f43">${cluster.occupied.size} particles, stickiness ${fmt2(c.stickiness)}</text>`;
+  }
+
+  fs.writeFileSync(
+    path.join(outDir, '03-dla.svg'),
+    `<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${body}</svg>`,
+  );
+  console.log('  ✎ 03-dla.svg');
+}
+
+// ─── 4. Penrose ───────────────────────────────────────────────────────
+{
+  const W = 1400;
+  const H = 760;
+  let body = `<rect width="${W}" height="${H}" fill="#fbf7ec"/>`;
+  body += header(
+    '4. Penrose P3 tiling — Penrose 1974, 5-fold aperiodic',
+    'Two rhombus shapes, infinite plane coverage, no translational repeat. Found in medieval Islamic geometric art (Topkapi scroll); inspires modern textile design.',
+    40,
+  );
+
+  const cellW = 420;
+  const cellH = 420;
+  // Three resolutions
+  const iters = [4, 5, 6];
+  for (let i = 0; i < iters.length; i++) {
+    const triangles = penroseTiling({
+      iterations: iters[i],
+      radius: cellW * 0.45,
+      cx: cellW / 2,
+      cy: cellH / 2,
+    });
+    const inner = penroseSvg(triangles, {
+      thinFill: '#c25f3e',
+      fatFill: '#5a8c9e',
+      stroke: '#39312a',
+      strokeWidth: 0.4,
+    });
+    const x0 = 40 + i * (cellW + 16);
+    const y0 = 100;
+    body += `<g transform="translate(${x0} ${y0})">`;
+    body += `<rect width="${cellW}" height="${cellH}" fill="#fdfaf2"/>`;
+    body += `<clipPath id="pen-clip-${i}"><rect width="${cellW}" height="${cellH}"/></clipPath>`;
+    body += `<g clip-path="url(#pen-clip-${i})">${inner}</g>`;
+    body += `<rect width="${cellW}" height="${cellH}" fill="none" stroke="#39312a" stroke-width="0.6"/>`;
+    body += `</g>`;
+    body += `<text x="${x0 + cellW / 2}" y="${y0 + cellH + 22}" text-anchor="middle" font-family="monospace" font-size="11" fill="#39312a">iterations ${iters[i]} (${triangles.length} half-rhombi)</text>`;
+  }
+
+  fs.writeFileSync(
+    path.join(outDir, '04-penrose.svg'),
+    `<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${body}</svg>`,
+  );
+  console.log('  ✎ 04-penrose.svg');
 }
 
 console.log(`\n✓ Phase D operators rendered. Open ${outDir}/`);
