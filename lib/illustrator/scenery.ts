@@ -337,6 +337,30 @@ export function tree(cx: number, baseY: number, h: number, rng: Rng, palette: Pa
     crown.push([cx + dCos(a) * crownR * m, crownCy + dSin(a) * crownR * m * 0.95]);
   }
   svg += watercolorWash(crown, rng, { color: palette.leaf, opacity: 0.7, bleed: 4 });
+  // v2: add 3-5 dappled darker spots scattered within the crown.
+  // Each is a small wobbly blob of leafShadow color at low opacity —
+  // simulating light/shadow play on real foliage.
+  const dappleCount = 3 + Math.floor(rng() * 3);
+  for (let i = 0; i < dappleCount; i++) {
+    const dr = crownR * (0.18 + rng() * 0.16);
+    const a = rng() * Math.PI * 2;
+    const dist = rng() * crownR * 0.55;
+    const dx = cx + dCos(a) * dist;
+    const dy = crownCy + dSin(a) * dist * 0.85;
+    const blob: Pt[] = [];
+    const n = 12;
+    for (let j = 0; j < n; j++) {
+      const ja = (j / n) * Math.PI * 2;
+      const jm = 1 + (rng() - 0.5) * 0.25;
+      blob.push([dx + dCos(ja) * dr * jm, dy + dSin(ja) * dr * jm * 0.95]);
+    }
+    svg += watercolorWash(blob, rng, {
+      color: palette.leafShadow,
+      opacity: 0.32,
+      bleed: 1,
+      edge: 0.12,
+    });
+  }
   // shading on lower-right
   svg += hatchFill(crown, rng, {
     color: palette.leafShadow,
