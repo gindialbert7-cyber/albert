@@ -64,15 +64,25 @@ export function paperBackground(canvas: Canvas, palette: Palette, seed: number):
 }
 
 export function paperVignette(canvas: Canvas, palette: Palette, seed: number): string {
-  const id = `vig-${(seed >>> 0).toString(36)}`;
+  // v2: two-layer vignette — a warm golden center wash (the "lamplight"
+  // glow) plus the edge darkening. Together they give every page the
+  // feel of being read by candle-light over warm cream paper.
+  const idDark = `vig-${(seed >>> 0).toString(36)}`;
+  const idWarm = `warm-${(seed >>> 0).toString(36)}`;
   return `
 <defs>
-  <radialGradient id="${id}" cx="50%" cy="50%" r="75%">
+  <radialGradient id="${idWarm}" cx="50%" cy="48%" r="60%">
+    <stop offset="0%" stop-color="#fce4b0" stop-opacity="0.07"/>
+    <stop offset="60%" stop-color="#fce4b0" stop-opacity="0.02"/>
+    <stop offset="100%" stop-color="#fce4b0" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="${idDark}" cx="50%" cy="50%" r="75%">
     <stop offset="60%" stop-color="${palette.paper}" stop-opacity="0"/>
-    <stop offset="100%" stop-color="#3b2f24" stop-opacity="0.18"/>
+    <stop offset="100%" stop-color="#3b2f24" stop-opacity="0.22"/>
   </radialGradient>
 </defs>
-<rect x="0" y="0" width="${canvas.width}" height="${canvas.height}" fill="url(#${id})"/>`;
+<rect x="0" y="0" width="${canvas.width}" height="${canvas.height}" fill="url(#${idWarm})"/>
+<rect x="0" y="0" width="${canvas.width}" height="${canvas.height}" fill="url(#${idDark})"/>`;
 }
 
 // ─── sky / horizon ───────────────────────────────────────────────────────────
