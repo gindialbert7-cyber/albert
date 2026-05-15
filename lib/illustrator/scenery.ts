@@ -33,7 +33,8 @@ export type BackdropKind =
   | 'pond'
   | 'snow-hills'
   | 'beach'
-  | 'mountain-peak';
+  | 'mountain-peak'
+  | 'shul';
 
 // ─── paper texture ───────────────────────────────────────────────────────────
 
@@ -984,6 +985,186 @@ export function drawBackdrop(
         palette.hill, palette.hillShadow, rng, palette, seed ^ 61, 0.7, 0.1,
       );
       svg += grassTufts(canvas, canvas.height - 8, 30, rng, palette);
+      break;
+    }
+    case 'shul': {
+      // Synagogue interior. Warm wooden walls, Aron Kodesh (ark) on the
+      // back wall flanked by columns, Ner Tamid (eternal flame) hanging
+      // above, a Star of David window letting amber light spill in, and
+      // a polished wooden floor in the foreground.
+      const W = canvas.width;
+      const H = canvas.height;
+      const floorY = H * 0.78;
+      // Back wall — warm cream/sand wash
+      svg += `<rect x="0" y="0" width="${W}" height="${fmt2(floorY)}" fill="#efe0bd"/>`;
+      // Subtle warm gradient veil (top darker, bottom lit by the ark)
+      for (let i = 0; i < 18; i++) {
+        const y = (i / 18) * floorY;
+        const op = 0.04 + (i / 18) * 0.06;
+        svg += `<rect x="0" y="${fmt2(y)}" width="${W}" height="${fmt2(floorY / 18 + 1)}" fill="#8a6438" opacity="${fmt2(op)}"/>`;
+      }
+      // Wooden floor — darker stained wood with horizontal plank lines
+      svg += `<rect x="0" y="${fmt2(floorY)}" width="${W}" height="${fmt2(H - floorY)}" fill="#7a5232"/>`;
+      // Plank seams
+      const planks = 6;
+      for (let i = 1; i < planks; i++) {
+        const y = floorY + (i / planks) * (H - floorY);
+        svg += handStroke(
+          [[0, y], [W, y]],
+          rng,
+          { color: '#4d2f17', width: 0.9, wobble: 0.25, overshoot: 0, passes: 1, opacity: 0.7 },
+        );
+      }
+      // Grain flecks
+      for (let i = 0; i < 90; i++) {
+        const x = rng() * W;
+        const y = floorY + rng() * (H - floorY);
+        svg += `<circle cx="${fmt2(x)}" cy="${fmt2(y)}" r="${fmt2(range(rng, 0.4, 1.2))}" fill="#4d2f17" opacity="${fmt2(range(rng, 0.15, 0.4))}"/>`;
+      }
+      // Star of David window — high center, behind the ark
+      const winCx = W * 0.5;
+      const winCy = H * 0.16;
+      const winR = Math.min(W, H) * 0.07;
+      // Background glow halo
+      svg += `<circle cx="${fmt2(winCx)}" cy="${fmt2(winCy)}" r="${fmt2(winR * 2.2)}" fill="#f3c977" opacity="0.35"/>`;
+      svg += `<circle cx="${fmt2(winCx)}" cy="${fmt2(winCy)}" r="${fmt2(winR * 1.4)}" fill="#fcd989" opacity="0.55"/>`;
+      // Two interlocking triangles
+      const triPath = (up: boolean): Pt[] => {
+        const a = up ? -Math.PI / 2 : Math.PI / 2;
+        const pts: Pt[] = [];
+        for (let i = 0; i < 3; i++) {
+          const ang = a + (i * 2 * Math.PI) / 3;
+          pts.push([winCx + dCos(ang) * winR, winCy + dSin(ang) * winR]);
+        }
+        return pts;
+      };
+      svg += handStroke(triPath(true), rng, {
+        color: '#3d2818', width: 2.4, closed: true, wobble: 0.4, overshoot: 0,
+      });
+      svg += handStroke(triPath(false), rng, {
+        color: '#3d2818', width: 2.4, closed: true, wobble: 0.4, overshoot: 0,
+      });
+      // Two flanking columns
+      const colW = W * 0.05;
+      const colTop = H * 0.20;
+      const colBot = floorY;
+      for (const cx of [W * 0.18, W * 0.82]) {
+        // Column shaft
+        svg += `<rect x="${fmt2(cx - colW / 2)}" y="${fmt2(colTop)}" width="${fmt2(colW)}" height="${fmt2(colBot - colTop)}" fill="#c9a574"/>`;
+        // Highlight stripe
+        svg += `<rect x="${fmt2(cx - colW * 0.35)}" y="${fmt2(colTop)}" width="${fmt2(colW * 0.18)}" height="${fmt2(colBot - colTop)}" fill="#e2c594" opacity="0.7"/>`;
+        // Capital
+        svg += `<rect x="${fmt2(cx - colW * 0.75)}" y="${fmt2(colTop - 12)}" width="${fmt2(colW * 1.5)}" height="14" fill="#a07b48"/>`;
+        // Base
+        svg += `<rect x="${fmt2(cx - colW * 0.85)}" y="${fmt2(colBot - 14)}" width="${fmt2(colW * 1.7)}" height="14" fill="#8a6638"/>`;
+        // Outline
+        svg += handStroke(
+          [[cx - colW / 2, colTop], [cx - colW / 2, colBot], [cx + colW / 2, colBot], [cx + colW / 2, colTop]],
+          rng,
+          { color: '#3d2818', width: 1.0, wobble: 0.2, overshoot: 0, passes: 1, opacity: 0.7 },
+        );
+      }
+      // Aron Kodesh — wooden ark, back-center
+      const arkCx = W * 0.5;
+      const arkW = W * 0.32;
+      const arkTopY = H * 0.34;
+      const arkBotY = floorY;
+      // Ark step / platform
+      svg += `<rect x="${fmt2(arkCx - arkW * 0.65)}" y="${fmt2(arkBotY - 14)}" width="${fmt2(arkW * 1.3)}" height="14" fill="#5d3a1a"/>`;
+      // Arched top of ark
+      const arkArchPts: Pt[] = [
+        [arkCx - arkW / 2, arkBotY],
+        [arkCx - arkW / 2, arkTopY + arkW * 0.25],
+      ];
+      const archSegs = 24;
+      for (let i = 0; i <= archSegs; i++) {
+        const t = i / archSegs;
+        const a = Math.PI * (1 - t);
+        arkArchPts.push([
+          arkCx + dCos(a) * (arkW / 2),
+          arkTopY + arkW * 0.25 - dSin(a) * (arkW * 0.25),
+        ]);
+      }
+      arkArchPts.push([arkCx + arkW / 2, arkBotY]);
+      svg += watercolorWash(arkArchPts, rng, { color: '#6d4423', opacity: 0.95, bleed: 2 });
+      svg += handStroke(arkArchPts, rng, {
+        color: '#2c1a0a', width: 1.6, closed: true, wobble: 0.3, overshoot: 0,
+      });
+      // Velvet curtain / parochet — deep red with gold trim, covering the front
+      const curtainInset = arkW * 0.07;
+      const curtainTopY = arkTopY + arkW * 0.07;
+      const curtainPts: Pt[] = [
+        [arkCx - arkW / 2 + curtainInset, arkBotY - 8],
+        [arkCx - arkW / 2 + curtainInset, curtainTopY + arkW * 0.20],
+      ];
+      const cSegs = 20;
+      for (let i = 0; i <= cSegs; i++) {
+        const t = i / cSegs;
+        const a = Math.PI * (1 - t);
+        curtainPts.push([
+          arkCx + dCos(a) * (arkW / 2 - curtainInset),
+          curtainTopY + arkW * 0.20 - dSin(a) * (arkW * 0.20),
+        ]);
+      }
+      curtainPts.push([arkCx + arkW / 2 - curtainInset, arkBotY - 8]);
+      svg += watercolorWash(curtainPts, rng, { color: '#8a2828', opacity: 0.94, bleed: 2 });
+      // Curtain vertical folds (subtle gold/dark stripes)
+      const folds = 6;
+      for (let i = 1; i < folds; i++) {
+        const fx = arkCx - arkW / 2 + curtainInset + (i / folds) * (arkW - 2 * curtainInset);
+        svg += handStroke(
+          [[fx, curtainTopY + arkW * 0.22], [fx, arkBotY - 10]],
+          rng,
+          { color: '#5a1818', width: 1.4, wobble: 0.35, overshoot: 0, passes: 1, opacity: 0.7 },
+        );
+      }
+      // Gold embroidered tablet shape on curtain (the Luchot — two tablets)
+      const tabCx = arkCx;
+      const tabCy = curtainTopY + arkW * 0.38;
+      const tabW = arkW * 0.18;
+      const tabH = arkW * 0.22;
+      // Two arched tablets
+      for (const dx of [-tabW * 0.55, tabW * 0.55]) {
+        const tpts: Pt[] = [];
+        tpts.push([tabCx + dx - tabW * 0.4, tabCy + tabH * 0.45]);
+        tpts.push([tabCx + dx - tabW * 0.4, tabCy - tabH * 0.1]);
+        const tSegs = 10;
+        for (let i = 0; i <= tSegs; i++) {
+          const t = i / tSegs;
+          const a = Math.PI * (1 - t);
+          tpts.push([
+            tabCx + dx + dCos(a) * tabW * 0.4,
+            tabCy - tabH * 0.1 - dSin(a) * tabW * 0.4,
+          ]);
+        }
+        tpts.push([tabCx + dx + tabW * 0.4, tabCy + tabH * 0.45]);
+        svg += watercolorWash(tpts, rng, { color: '#d6a73a', opacity: 0.88, bleed: 1 });
+        svg += handStroke(tpts, rng, {
+          color: '#7a5916', width: 0.9, closed: true, wobble: 0.2, overshoot: 0,
+        });
+      }
+      // Ner Tamid — small hanging lamp above the ark with a warm flame.
+      // Sits ABOVE the curtain top, drawn AFTER the curtain so it renders
+      // in front rather than behind.
+      const lampCx = arkCx;
+      const lampCy = arkTopY - 28;
+      // Chain
+      svg += handStroke(
+        [[lampCx, H * 0.06], [lampCx, lampCy - 10]],
+        rng,
+        { color: '#2c1a0a', width: 1.0, wobble: 0.25, overshoot: 0, passes: 1, opacity: 0.85 },
+      );
+      // Soft glow halo
+      svg += `<circle cx="${fmt2(lampCx)}" cy="${fmt2(lampCy)}" r="32" fill="#ffd266" opacity="0.18"/>`;
+      svg += `<circle cx="${fmt2(lampCx)}" cy="${fmt2(lampCy)}" r="18" fill="#ffd266" opacity="0.28"/>`;
+      // Lamp body
+      svg += `<ellipse cx="${fmt2(lampCx)}" cy="${fmt2(lampCy)}" rx="9" ry="11" fill="#b88a3c" stroke="#3d2818" stroke-width="0.8"/>`;
+      svg += `<ellipse cx="${fmt2(lampCx - 2)}" cy="${fmt2(lampCy - 2)}" rx="3" ry="4" fill="#e9c884" opacity="0.8"/>`;
+      // Flame (slightly above the body)
+      svg += `<ellipse cx="${fmt2(lampCx)}" cy="${fmt2(lampCy - 14)}" rx="3.6" ry="6.5" fill="#ffd266"/>`;
+      svg += `<ellipse cx="${fmt2(lampCx)}" cy="${fmt2(lampCy - 14)}" rx="2.2" ry="4.2" fill="#fff4c2"/>`;
+      // A subtle warm pool of light on the floor in front of the ark
+      svg += `<ellipse cx="${fmt2(arkCx)}" cy="${fmt2(floorY + (H - floorY) * 0.35)}" rx="${fmt2(arkW * 0.7)}" ry="${fmt2((H - floorY) * 0.25)}" fill="#f5d989" opacity="0.32"/>`;
       break;
     }
   }
