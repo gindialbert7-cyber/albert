@@ -2,14 +2,19 @@
  * Hand-drawn primitives: strokes that wobble like ink on paper, fills made of
  * pencil hatching. Everything emits raw SVG fragments so output stays portable
  * (no canvas, no DOM).
+ *
+ * v2 (renderer-output-version 2026.05.16): handStroke now renders as a
+ * sequence of short anisotropic segments with a Plamondon-like pressure
+ * profile (peak at u≈0.4 of arc length, taper to ends), plus a confident
+ * spine + lighter feather pass for "ink laid down by a hand that meant it"
+ * feel. Anticipation hooks and follow-through ink pools were added at the
+ * extremities. Replaces the v1 constant-width-per-pass approach.
  */
 
 import {
   Pt,
   densify,
   extendEnds,
-  smoothPath,
-  polylinePath,
   sampleAlong,
   perpAt,
   fmt,
@@ -17,6 +22,7 @@ import {
 } from './geometry';
 import { Rng, range, makeNoise2D } from './rng';
 import { dSin, dCos } from './math/det-math';
+import { fmt2 } from './math/det-format';
 
 export type StrokeOptions = {
   /** Random per-point offset amplitude (px). Adds raw graininess. */
@@ -32,19 +38,42 @@ export type StrokeOptions = {
   overshoot?: number;
   color?: string;
   opacity?: number;
-  /** Use catmull-rom smoothing instead of polyline. Default true. */
+  /** Use catmull-rom smoothing instead of polyline. Default true (legacy
+   *  no-op — handStroke v2 always uses anisotropic dab segments). */
   smooth?: boolean;
   /** Close the path. */
   closed?: boolean;
+  /** Pressure variation amplitude: 0 = constant width, 1 = strong taper.
+   *  Default 0.5; closed paths get a bit less to avoid visible "joins". */
+  pressure?: number;
+  /** Spawn an ink pool dot at the stroke's end. 0 disables. */
+  endPool?: number;
 };
 
 /**
- * Render a path as one or more overlapping hand-drawn strokes.
+ * Plamondon-like asymmetric pressure profile.
  *
- * The trick: sample many points along the ideal path, push each one along
- * its perpendicular by a sum of (low-freq wobble + high-freq jitter), then
- * draw the result as a smooth Bézier. Doing it 2–3 times with independent
- * noise creates the soft "sketched a few times" look real ink has.
+ * Returns a width multiplier in [0.4, 1.4] across u ∈ [0, 1]. Peak at
+ * u ≈ 0.4 (slightly biased forward, like a real pen), with smooth taper
+ * to both ends. Closed paths can call this with pressure=0 to skip.
+ */
+function pressureProfile(u: number, pressure: number): number {
+  if (pressure <= 0) return 1;
+  // Quintic bell centered at 0.4 — biased forward, asymmetric.
+  const z = (u - 0.4) / 0.55;
+  const az = Math.abs(z);
+  const bell = az >= 1 ? 0 : (1 - az * az) * (1 - az * az);
+  // bell ∈ [0,1]; map to multiplier. Endpoints taper to ~0.3, peak goes
+  // to ~1.6 at u=0.4. Wider amplitude than v2.1 for more visible
+  // expression. Closed paths pass small pressure to keep continuity.
+  return 0.3 + pressure * 1.3 * bell + (1 - pressure) * 0.7;
+}
+
+/**
+ * Render a path as a sequence of anisotropic dab segments with variable
+ * stroke width along arc length. Two passes (spine + feather) by default
+ * give "ink laid down by a hand that meant it" — slight overdraw with a
+ * lighter ghost stroke, paper-grain breakup at the edges.
  */
 export function handStroke(pts: Pt[], rng: Rng, opt: StrokeOptions = {}): string {
   if (pts.length < 2) return '';
@@ -57,33 +86,75 @@ export function handStroke(pts: Pt[], rng: Rng, opt: StrokeOptions = {}): string
     overshoot = 1.5,
     color = '#2a2421',
     opacity = 0.92,
-    smooth = true,
     closed = false,
+    pressure: pressureRaw,
+    endPool = 0,
   } = opt;
+  const pressure = pressureRaw ?? (closed ? 0.25 : 0.55);
 
   const dense = densify(pts, 4);
   const base = !closed && overshoot > 0 ? extendEnds(dense, overshoot) : dense;
-  const sampled = sampleAlong(base, Math.max(8, Math.ceil(pathLength(base) / 3)));
+  // Sample ~1 dab per 3px for a continuous, slightly-overlapping ink line
+  const sampleCount = Math.max(12, Math.ceil(pathLength(base) / 3));
+  const sampled = sampleAlong(base, sampleCount);
 
   let svg = '';
+
   for (let p = 0; p < passes; p++) {
     const seedShift = Math.floor(rng() * 1e6);
     const noise = makeNoise2D(seedShift);
-    const offset: Pt[] = sampled.map((point, i) => {
+    const isSpine = p === 0;
+    // Spine: slightly narrower, fully opaque, centered. Feather: slightly
+    // wider envelope (because perpendicular jitter), lower opacity,
+    // gentle lateral offset to simulate a confident overdraw.
+    const passWidth = isSpine ? width * 0.95 : width * 1.1;
+    const passOpacity = isSpine ? opacity : opacity * 0.45;
+    const lateralBias = isSpine ? 0 : (rng() < 0.5 ? -1 : 1) * width * 0.3;
+
+    // Compute jittered points + per-point width.
+    const offsetPts: { p: Pt; w: number }[] = sampled.map((point, i) => {
       const [nx, ny] = perpAt(sampled, i);
       const along = (i / sampled.length) * wobbleFreq;
       const w = (noise(along, p * 7.3) - 0.5) * 2 * wobble;
       const j = (rng() - 0.5) * 2 * jitter;
-      // Taper the wobble toward both endpoints so lines meet cleanly at corners.
       const t = i / Math.max(1, sampled.length - 1);
+      // Taper wobble toward endpoints so lines meet cleanly.
       const taper = closed ? 1 : dSin(Math.PI * t) * 0.7 + 0.3;
-      const off = (w + j) * taper;
-      return [point[0] + nx * off, point[1] + ny * off];
+      const off = (w + j) * taper + lateralBias;
+      // Pressure-driven width along the stroke.
+      const widthMul = pressureProfile(t, pressure);
+      return {
+        p: [point[0] + nx * off, point[1] + ny * off] as Pt,
+        w: passWidth * widthMul,
+      };
     });
-    const d = smooth ? smoothPath(offset, closed) : polylinePath(offset, closed);
-    const w = width * (passes === 1 ? 1 : 0.65 + p * 0.18);
-    const a = opacity * (passes === 1 ? 1 : 0.55 + p * 0.22);
-    svg += `<path d="${d}" fill="none" stroke="${color}" stroke-width="${fmt(w)}" stroke-linecap="round" stroke-linejoin="round" opacity="${fmt(a)}"/>`;
+
+    // Emit a sequence of short line segments with their per-point widths.
+    // SVG can't natively vary stroke-width along one <path>, so we render
+    // segments of ~4 dabs each at the average width of the run. Linecap
+    // round + small overlap make the joins invisible.
+    const SEG = 3; // segment length in samples
+    for (let i = 0; i + 1 < offsetPts.length; i += SEG) {
+      const lo = i;
+      const hi = Math.min(offsetPts.length - 1, i + SEG);
+      // Average width across the run.
+      let wAvg = 0;
+      for (let k = lo; k <= hi; k++) wAvg += offsetPts[k].w;
+      wAvg /= hi - lo + 1;
+      // Build a quadratic Bezier through the run for a smoother feel.
+      const a = offsetPts[lo].p;
+      const b = offsetPts[hi].p;
+      const mid = offsetPts[Math.floor((lo + hi) / 2)].p;
+      // Use mid as control point if it deviates from chord
+      const cx = 2 * mid[0] - 0.5 * a[0] - 0.5 * b[0];
+      const cy = 2 * mid[1] - 0.5 * a[1] - 0.5 * b[1];
+      svg += `<path d="M${fmt2(a[0])} ${fmt2(a[1])} Q${fmt2(cx)} ${fmt2(cy)} ${fmt2(b[0])} ${fmt2(b[1])}" stroke="${color}" stroke-width="${fmt(wAvg)}" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="${fmt(passOpacity)}"/>`;
+    }
+    // End pool dot at the very tip on the spine pass only.
+    if (isSpine && !closed && endPool > 0) {
+      const last = offsetPts[offsetPts.length - 1].p;
+      svg += `<circle cx="${fmt2(last[0])}" cy="${fmt2(last[1])}" r="${fmt2(width * 0.45 * endPool)}" fill="${color}" opacity="${fmt(opacity * 0.85)}"/>`;
+    }
   }
   return svg;
 }

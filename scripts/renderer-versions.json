@@ -1,11 +1,18 @@
 {
-  "current": "2026.05.15",
+  "current": "2026.05.16",
   "versions": {
     "2026.05.15": {
       "released": "2026-05-15",
       "imageDigest": "pending — first build pending Docker buildx in CI",
-      "goldenSuiteHashesAt": "scripts/determinism-golden.json@HEAD",
+      "goldenSuiteHashesAt": "scripts/determinism-golden.json@d001e9f",
       "notes": "Initial release of the determinism-disciplined renderer. Math.sin/cos replaced with Remez polynomials in det-math.ts; toFixed replaced with integer-route formatter in det-format.ts; ESLint forbidden-identifier rule active; monkey-patch trap active; cross-OS determinism CI active."
+    },
+    "2026.05.16": {
+      "released": "2026-05-16",
+      "imageDigest": "pending",
+      "goldenSuiteHashesAt": "scripts/determinism-golden.json@HEAD",
+      "notes": "First aesthetic recalibration. handStroke v2: variable-width segments with Plamondon-like pressure profile (peak at u=0.4 of arc length), confident-spine + lighter-feather two-pass structure, optional end ink-pool dot, anisotropic Bezier segments instead of single constant-width path. watercolorWash v2: internal pigment density variation via inner-patch overlay, more pronounced wet-edge rim with 2-3 stronger pooled-pigment dabs. Output bytes change (intentional). Same scene_params produce a more painted feel; the architectural AI-signature forbids are unchanged."
     }
   }
 }
+

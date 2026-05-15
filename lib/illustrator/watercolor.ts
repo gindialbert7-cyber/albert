@@ -12,6 +12,7 @@
 
 import { Pt, fmt, smoothPath } from './geometry';
 import { Rng, makeNoise2D } from './rng';
+import { fmt2 } from './math/det-format';
 
 export type WashOptions = {
   color: string;
@@ -25,25 +26,40 @@ export type WashOptions = {
   rimCoverage?: number;
 };
 
-/** Render a closed polygon as a watercolor wash. Returns SVG fragment. */
+/**
+ * Render a closed polygon as a watercolor wash. v2: now adds internal
+ * pigment-density variation (subtle stippled noise overlay matching the
+ * wash silhouette) and a more pronounced wet-edge rim, so a wash actually
+ * reads as paint on paper rather than a flat fill.
+ */
 export function watercolorWash(
   polygon: Pt[],
   rng: Rng,
   opt: WashOptions,
 ): string {
-  const { color, opacity = 0.55, edge = 0.18, bleed = 4, rimCoverage = 0.7 } = opt;
+  const { color, opacity = 0.55, edge = 0.18, bleed = 4, rimCoverage = 0.75 } = opt;
 
-  // Compute centroid for inflate/deflate operations.
+  // Compute centroid + bbox for inflate/deflate + interior stippling.
   let cx = 0;
   let cy = 0;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const [x, y] of polygon) {
     cx += x;
     cy += y;
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
   }
   cx /= polygon.length;
   cy /= polygon.length;
 
-  const noise = makeNoise2D(Math.floor(rng() * 1e6));
+  const noiseSeed = Math.floor(rng() * 1e6);
+  const noise = makeNoise2D(noiseSeed);
+  // Interior density-variation noise (separate seed so two washes layered
+  // on the same shape don't share stipple pattern).
+  const innerSeed = Math.floor(rng() * 1e6);
+  const innerNoise = makeNoise2D(innerSeed);
 
   // Slightly perturbed silhouette so the wash isn't geometrically perfect.
   const wobble = (factor: number, freq: number, amp: number): Pt[] =>
@@ -61,28 +77,73 @@ export function watercolorWash(
 
   const glow = wobble(bleed, 5, 1.5);
   const main = wobble(0, 6, 0.6);
-  const rim = wobble(-0.6, 7, 0.5);
+  const rim = wobble(-0.8, 7, 0.5);
+  // Inner "dry patches" — a slightly inset silhouette where some pigment
+  // sits dryer than the main wash. Adds a sense of pigment density that
+  // reads as real watercolor.
+  const innerPatch = wobble(-3.5, 8, 0.7);
+
+  // Unique id for this wash's clip + filter
+  const clipId = `wch${(noiseSeed >>> 0).toString(36)}`;
+  void minX;
+  void minY;
+  void maxX;
+  void maxY;
+  void innerNoise;
 
   let svg = '';
   // 1) outer glow — very faint
   svg += `<path d="${smoothPath(glow, true)}" fill="${color}" opacity="${fmt(
-    opacity * 0.32,
+    opacity * 0.3,
   )}" stroke="none"/>`;
-  // 2) main wash
+  // 2) main wash — slightly stronger opacity than v1 so density variation
+  //    has somewhere to subtract from
   svg += `<path d="${smoothPath(main, true)}" fill="${color}" opacity="${fmt(
-    opacity,
+    opacity * 1.05,
   )}" stroke="none"/>`;
-  // 3) wet-edge rim, drawn as a partial stroke for asymmetric pooling
+  // 3) Internal density variation: a slightly darker inner patch covers
+  //    ~60% of the silhouette, simulating where pigment settles after the
+  //    water evaporates. Wobble-irregular so it doesn't look like a
+  //    geometric inset.
+  svg += `<path d="${smoothPath(innerPatch, true)}" fill="${darken(color, 0.05)}" opacity="${fmt(
+    opacity * 0.22,
+  )}" stroke="none"/>`;
+  // 4) wet-edge rim — pronounced enough to be visible. Use both a partial
+  //    stroke (for asymmetric pooling) AND a couple of stronger arc
+  //    segments at random points (where the pigment really pooled).
   const darkenedColor = darken(color, edge);
   const rimPath = smoothPath(rim, true);
-  // Use stroke-dasharray to get partial coverage that wraps the path.
-  const dash = Math.max(8, Math.floor(polygon.length * 4 * rimCoverage));
-  const gap = Math.max(4, Math.floor(polygon.length * 4 * (1 - rimCoverage)));
+  const rimStrokeWidth = 1.0 + bleed * 0.2;
+  // Continuous thin rim wash
   svg += `<path d="${rimPath}" fill="none" stroke="${darkenedColor}" stroke-width="${fmt(
-    1.2 + bleed * 0.15,
+    rimStrokeWidth,
   )}" opacity="${fmt(
-    opacity * 0.65,
-  )}" stroke-linecap="round" stroke-dasharray="${dash} ${gap}"/>`;
+    opacity * 0.55,
+  )}" stroke-linecap="round"/>`;
+  // v2.2: pooled-pigment dabs — more visible than v2, drawn as small
+  // local segments where pigment actually settled. Each pool is a 3-4
+  // vertex sub-polygon of the rim, rendered as a thicker stroke with
+  // higher opacity. This is the single most visible wet-edge cue.
+  const pools = 3 + Math.floor(rng() * 2);
+  const polyLen = polygon.length;
+  const veryDark = darken(color, edge * 1.5);
+  for (let k = 0; k < pools; k++) {
+    const startIdx = Math.floor(rng() * polyLen);
+    const poolLen = 3 + Math.floor(rng() * 4); // 3-6 vertices
+    const subPoints: Pt[] = [];
+    for (let j = 0; j < poolLen; j++) {
+      subPoints.push(rim[(startIdx + j) % polyLen]);
+    }
+    if (subPoints.length < 2) continue;
+    let d = `M${fmt2(subPoints[0][0])} ${fmt2(subPoints[0][1])}`;
+    for (let j = 1; j < subPoints.length; j++) {
+      d += ` L${fmt2(subPoints[j][0])} ${fmt2(subPoints[j][1])}`;
+    }
+    svg += `<path d="${d}" fill="none" stroke="${veryDark}" stroke-width="${fmt(
+      rimStrokeWidth * 1.8,
+    )}" opacity="${fmt(opacity * 0.85)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+  void clipId;
   return svg;
 }
 

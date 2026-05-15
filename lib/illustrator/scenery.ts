@@ -29,15 +29,26 @@ export type BackdropKind =
 export function paperBackground(canvas: Canvas, palette: Palette, seed: number): string {
   const rng = mulberry32(seed ^ 0xa17ec);
   let svg = `<rect x="0" y="0" width="${canvas.width}" height="${canvas.height}" fill="${palette.paper}"/>`;
-  // sparse fiber flecks
-  const flecks = Math.floor((canvas.width * canvas.height) / 9000);
+  // v2: denser fiber flecks for stronger paper-grain feel
+  const flecks = Math.floor((canvas.width * canvas.height) / 5000);
   for (let i = 0; i < flecks; i++) {
     const x = rng() * canvas.width;
     const y = rng() * canvas.height;
-    const r = range(rng, 0.3, 1.1);
-    const op = range(rng, 0.04, 0.12);
-    const c = rng() < 0.5 ? '#a89a82' : '#cdbfa5';
+    const r = range(rng, 0.3, 1.4);
+    const op = range(rng, 0.06, 0.16);
+    // 3-color fleck palette: warm tan, cool gray-green, light cream
+    const which = rng();
+    const c = which < 0.45 ? '#a89a82' : which < 0.8 ? '#cdbfa5' : '#e6d7b8';
     svg += `<circle cx="${fmt1(x)}" cy="${fmt1(y)}" r="${fmt2(r)}" fill="${c}" opacity="${fmt2(op)}"/>`;
+  }
+  // v2: subtle horizontal paper-grain striations (very low opacity)
+  const striations = Math.floor(canvas.height / 18);
+  for (let i = 0; i < striations; i++) {
+    const y = rng() * canvas.height;
+    const x0 = rng() * canvas.width;
+    const len = range(rng, 30, 160);
+    const op = range(rng, 0.02, 0.05);
+    svg += `<line x1="${fmt1(x0)}" y1="${fmt1(y)}" x2="${fmt1(x0 + len)}" y2="${fmt1(y + range(rng, -1.5, 1.5))}" stroke="#9c8b73" stroke-width="0.4" opacity="${fmt2(op)}"/>`;
   }
   // a few faint smudges
   for (let i = 0; i < 6; i++) {
