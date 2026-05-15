@@ -28,6 +28,8 @@ import {
   BackdropKind,
 } from './scenery';
 import { drawRabbit } from './characters/rabbit';
+import { drawOwl } from './characters/owl';
+import { renderBuiltinProp, type BuiltinPropName, ALL_BUILTIN_PROPS } from './builtin-props';
 
 export type PropKind =
   | { kind: 'sun'; x: number; y: number; r?: number; rays?: boolean }
@@ -37,7 +39,8 @@ export type PropKind =
   | { kind: 'mushroom'; x: number; y: number; scale?: number; capColor?: string; glow?: boolean }
   | { kind: 'flower'; x: number; y: number; scale?: number; color?: string }
   | { kind: 'butterfly'; x: number; y: number; scale?: number }
-  | { kind: 'bird'; x: number; y: number; scale?: number };
+  | { kind: 'bird'; x: number; y: number; scale?: number }
+  | { kind: 'builtin'; name: BuiltinPropName; x: number; y: number; scale?: number };
 
 export type PlacedCharacter = {
   characterId: string;
@@ -137,6 +140,7 @@ function renderCharacter(
     case 'rabbit':
       return drawRabbit(c, pose, placement, rng, palette);
     case 'owl':
+      return drawOwl(c, pose, placement, rng, palette);
     case 'fox':
     case 'mouse':
       // Fallback: render as a labeled rabbit for now; species can be
@@ -176,10 +180,24 @@ function renderProps(props: PlacedProp[], palette: Palette, seed: number): strin
       case 'bird':
         svg += littleBird(p.x, p.y, p.scale ?? 1, rng, palette);
         break;
+      case 'builtin':
+        svg += renderBuiltinProp(
+          p.name,
+          p.x,
+          p.y,
+          p.scale ?? 1,
+          (seed ^ hashString('bp:' + p.name + ':' + i)) >>> 0,
+          palette,
+        );
+        break;
     }
   }
   return svg;
 }
+
+// Re-export so callers can enumerate available built-in prop names.
+export { ALL_BUILTIN_PROPS };
+export type { BuiltinPropName };
 
 // Render only the character (used for a "character sheet" page).
 export function renderCharacterSheet(c: Character, canvas: Canvas = { width: 480, height: 540 }, artist?: Artist): string {
