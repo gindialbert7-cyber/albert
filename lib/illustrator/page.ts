@@ -29,6 +29,7 @@ import {
 } from './scenery';
 import { drawRabbit } from './characters/rabbit';
 import { drawOwl } from './characters/owl';
+import { drawFox } from './characters/fox';
 import { renderBuiltinProp, type BuiltinPropName, ALL_BUILTIN_PROPS } from './builtin-props';
 
 export type PropKind =
@@ -142,9 +143,9 @@ function renderCharacter(
     case 'owl':
       return drawOwl(c, pose, placement, rng, palette);
     case 'fox':
+      return drawFox(c, pose, placement, rng, palette);
     case 'mouse':
-      // Fallback: render as a labeled rabbit for now; species can be
-      // added later without changing call sites.
+      // Fallback: render as rabbit for now; mouse species pending.
       return drawRabbit(c, pose, placement, rng, palette);
   }
 }
