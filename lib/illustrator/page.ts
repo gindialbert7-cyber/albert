@@ -9,6 +9,8 @@
 
 import { Character, Pose, Placement, DEFAULT_POSE } from './character';
 import { Palette, getPalette, Mood } from './palette';
+import type { Artist } from './artist';
+import { fusePalette } from './palette-fuse';
 import { mulberry32, hashString } from './rng';
 import {
   drawBackdrop,
@@ -63,9 +65,10 @@ export type Page = {
   seed?: number;
 };
 
-export function renderPage(page: Page, cast: Character[]): string {
+export function renderPage(page: Page, cast: Character[], artist?: Artist): string {
   const canvas: Canvas = page.canvas ?? { width: 800, height: 600 };
-  const palette = getPalette(page.mood);
+  const basePalette = getPalette(page.mood);
+  const palette = artist ? fusePalette(basePalette, artist) : basePalette;
   const seed = page.seed ?? hashString('page:' + page.id);
 
   let svg = '';
@@ -179,8 +182,9 @@ function renderProps(props: PlacedProp[], palette: Palette, seed: number): strin
 }
 
 // Render only the character (used for a "character sheet" page).
-export function renderCharacterSheet(c: Character, canvas: Canvas = { width: 480, height: 540 }): string {
-  const palette = getPalette('day');
+export function renderCharacterSheet(c: Character, canvas: Canvas = { width: 480, height: 540 }, artist?: Artist): string {
+  const basePalette = getPalette('day');
+  const palette = artist ? fusePalette(basePalette, artist) : basePalette;
   const seed = hashString('sheet:' + c.id);
   let svg = '';
   svg += paperBackground(canvas, palette, seed);
