@@ -219,3 +219,86 @@ export function parseBrief(
 
   return { intent, matched };
 }
+
+// ─── LLM brain (Claude API call, optional) ─────────────────────────────
+
+/** When ANTHROPIC_API_KEY is set, use Claude to extract intent. Falls
+ *  back silently to the rule-based parser on any error so the system
+ *  always works. */
+export async function parseBriefWithLLM(
+  brief: string,
+  overrides: Partial<DesignIntent> = {},
+  options: { model?: string; timeoutMs?: number } = {},
+): Promise<BriefParseResult> {
+  const key = typeof process !== 'undefined' && process.env ? process.env.ANTHROPIC_API_KEY : undefined;
+  if (!key) {
+    // No API key → fall back to rule-based.
+    return parseBrief(brief, overrides);
+  }
+  const model = options.model ?? 'claude-haiku-4-5-20251001';
+  const timeoutMs = options.timeoutMs ?? 8000;
+
+  const systemPrompt = `You parse free-text textile-pattern design briefs into a strict JSON schema.
+
+Respond with ONLY a JSON object — no prose, no markdown fences — matching this shape:
+{
+  "mood": "organic" | "geometric" | "painterly" | "editorial" | "botanical" | "meditative",
+  "density": "sparse" | "medium" | "dense",
+  "scale": "small" | "medium" | "large",
+  "directionality": "omni" | "horizontal" | "vertical" | "radial" | "diagonal" | null,
+  "keyColor": string,  // 6-digit hex like "#5a7042"
+  "paletteStrategy": "monochrome" | "analogous" | "complementary" | "split-complement" | "triadic" | "tetradic" | "shades"
+}
+
+Use the most accurate single value from each enum. If unspecified, infer from context.`;
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 256,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `Brief: ${brief}` }],
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      // API error — fall back.
+      return parseBrief(brief, overrides);
+    }
+    const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+    const text = data.content?.find((c) => c.type === 'text')?.text ?? '';
+    // Extract JSON.
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) return parseBrief(brief, overrides);
+    const parsed = JSON.parse(m[0]) as Partial<DesignIntent>;
+    // Validate hex.
+    if (typeof parsed.keyColor === 'string' && !/^#?[0-9a-f]{6}$/i.test(parsed.keyColor)) {
+      delete parsed.keyColor;
+    }
+    // Merge defaults + parsed + caller overrides.
+    const fallback = parseBrief(brief, overrides);
+    const intent: DesignIntent = {
+      ...fallback.intent,
+      ...parsed,
+      ...overrides,
+    };
+    // Re-validate via colorway (throws on bad hex).
+    void colorway(intent.keyColor, intent.paletteStrategy ?? 'analogous');
+    return {
+      intent,
+      matched: { ...fallback.matched, color: intent.keyColor },
+    };
+  } catch {
+    return parseBrief(brief, overrides);
+  }
+}
