@@ -30,6 +30,7 @@ import {
 import { drawRabbit } from './characters/rabbit';
 import { drawOwl } from './characters/owl';
 import { drawFox } from './characters/fox';
+import { drawMouse } from './characters/mouse';
 import { renderBuiltinProp, type BuiltinPropName, ALL_BUILTIN_PROPS } from './builtin-props';
 
 export type PropKind =
@@ -145,8 +146,7 @@ function renderCharacter(
     case 'fox':
       return drawFox(c, pose, placement, rng, palette);
     case 'mouse':
-      // Fallback: render as rabbit for now; mouse species pending.
-      return drawRabbit(c, pose, placement, rng, palette);
+      return drawMouse(c, pose, placement, rng, palette);
   }
 }
 
