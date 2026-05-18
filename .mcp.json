@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://mcp.fal.ai/mcp",
       "headers": {
-        "Authorization": "Bearer ${FAL_KEY}"
+        "Authorization": "Bearer c0bc9481-f002-4d0a-8e4d-289cdabe44ca:c423f78da6e8e6ad316473949719aa14"
       }
     }
   }
